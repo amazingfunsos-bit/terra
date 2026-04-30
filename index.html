@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TERRA WORLD v11</title>
+<title>TERRA WORLD v12</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -623,15 +623,15 @@ canvas#world{display:block;position:fixed;inset:0;}
 
 // ── Renderer ──────────────────────────────────────────────────
 const canvas=document.getElementById('world');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
 const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,0.1,2200);
+const camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,0.1,1600);
 
 // ── Ground ────────────────────────────────────────────────────
 const groundGeo=new THREE.PlaneGeometry(2200,2200);
@@ -774,10 +774,10 @@ scene.fog=new THREE.Fog(0xc0dff0,240,1000);
 scene.background=new THREE.Color(0x87c5e8);
 const ambient=new THREE.AmbientLight(0xfff0dd,.5);scene.add(ambient);
 const sunLight=new THREE.DirectionalLight(0xfffaee,1.3);
-sunLight.castShadow=true;sunLight.shadow.mapSize.set(2048,2048);
-sunLight.shadow.camera.near=1;sunLight.shadow.camera.far=1400;
-sunLight.shadow.camera.left=sunLight.shadow.camera.bottom=-700;
-sunLight.shadow.camera.right=sunLight.shadow.camera.top=700;
+sunLight.castShadow=true;sunLight.shadow.mapSize.set(1024,1024);
+sunLight.shadow.camera.near=1;sunLight.shadow.camera.far=800;
+sunLight.shadow.camera.left=sunLight.shadow.camera.bottom=-400;
+sunLight.shadow.camera.right=sunLight.shadow.camera.top=400;
 scene.add(sunLight);
 const hemi=new THREE.HemisphereLight(0x88aaff,0x334422,.3);scene.add(hemi);
 const moonLight=new THREE.DirectionalLight(0x3355aa,0);scene.add(moonLight);
@@ -855,6 +855,7 @@ let isRaining=false;
 let rainTimer=0;
 let rainCooldown=120+Math.random()*180; // next rain in 2-5 min
 let rainDuration=0;
+let rainFadeAlpha=0; // 0=invisible, 1=full rain
 const rainCanvas=document.getElementById('rain-canvas');
 const rainCtx=rainCanvas.getContext('2d');
 const raindrops=[];
@@ -868,16 +869,14 @@ resizeRainCanvas();window.addEventListener('resize',resizeRainCanvas);
 function startRain(){
   isRaining=true;rainDuration=30+Math.random()*60;
   document.getElementById('weather-lbl').classList.add('show');
-  // Darken sky slightly
   scene.fog.far=Math.min(600,scene.fog.far);
   sysMsg('🌧️ It\'s raining! Crops will auto-water.');
-  // Auto-water all farm crops during rain
   Object.values(farmCrops).forEach(crops=>crops.forEach(c=>{if(!c.grown)c.watered=true;}));
 }
 function stopRain(){
   isRaining=false;
   document.getElementById('weather-lbl').classList.remove('show');
-  rainCtx.clearRect(0,0,rainCanvas.width,rainCanvas.height);
+  // Don't clear rain immediately — let it fade out naturally via rainFadeAlpha
   rainCooldown=90+Math.random()*210;
   sysMsg('☀️ Rain stopped.');
 }
@@ -886,12 +885,21 @@ function updateWeather(dt){
   if(isRaining){
     rainTimer+=dt;
     if(rainTimer>=rainDuration){rainTimer=0;stopRain();}
-    // Draw rain
+    rainFadeAlpha=Math.min(1,rainFadeAlpha+dt*1.2); // fade in
+  } else {
+    rainCooldown-=dt;
+    if(rainCooldown<=0&&!isNight()){rainTimer=0;startRain();}
+    rainFadeAlpha=Math.max(0,rainFadeAlpha-dt*0.4); // slow fade out after rain stops
+  }
+
+  if(rainFadeAlpha>0.01){
+    // Move raindrops even when fading out so they don't freeze
     rainCtx.clearRect(0,0,rainCanvas.width,rainCanvas.height);
-    rainCtx.strokeStyle='rgba(180,210,255,0.45)';
+    rainCtx.strokeStyle=`rgba(180,210,255,${0.45*rainFadeAlpha})`;
     rainCtx.lineWidth=1.2;
     raindrops.forEach(d=>{
-      d.y+=d.spd;d.x+=2;
+      d.y+=d.spd*(isRaining?1:0.5); // slow fall during fade-out
+      d.x+=2*(isRaining?1:0.5);
       if(d.y>rainCanvas.height){d.y=-20;d.x=Math.random()*rainCanvas.width;}
       if(d.x>rainCanvas.width){d.x=0;}
       rainCtx.beginPath();
@@ -899,9 +907,6 @@ function updateWeather(dt){
       rainCtx.lineTo(d.x-d.len*Math.sin(d.angle),d.y-d.len*Math.cos(d.angle));
       rainCtx.stroke();
     });
-  } else {
-    rainCooldown-=dt;
-    if(rainCooldown<=0&&!isNight()){rainTimer=0;startRain();}
   }
 }
 
@@ -1262,8 +1267,13 @@ function buildOn(plot,type){
     plot.walls.push({x:wx,y:wy,z:wz,sx,sy,sz});return m;
   }
 
-  const fnd=new THREE.Mesh(new THREE.BoxGeometry(def.w+.5,.5,def.d+.5),new THREE.MeshLambertMaterial({color:0xa0a090}));
-  fnd.position.set(plot.cx,.25,plot.cz);fnd.receiveShadow=true;scene.add(fnd);
+  // ─ Foundation / slab ─
+  const fndMat=new THREE.MeshLambertMaterial({color:0x999888});
+  const fnd=new THREE.Mesh(new THREE.BoxGeometry(def.w+.7,.55,def.d+.7),fndMat);
+  fnd.position.set(plot.cx,.27,plot.cz);fnd.receiveShadow=true;scene.add(fnd);
+  // Foundation edge trim
+  const fndTrim=new THREE.Mesh(new THREE.BoxGeometry(def.w+.9,.18,def.d+.9),new THREE.MeshLambertMaterial({color:0x888070}));
+  fndTrim.position.set(plot.cx,.55,plot.cz);scene.add(fndTrim);
 
   addWall(plot.cx,def.h/2+.5,plot.cz-hd,def.w,def.h,.5);
   addWall(plot.cx-hw,def.h/2+.5,plot.cz,.5,def.h,def.d);
@@ -1274,35 +1284,129 @@ function buildOn(plot,type){
   const headerH=def.h-DOOR_H;
   addWall(plot.cx,DOOR_H+headerH/2+.5,plot.cz+hd,DOOR_W,headerH,.5);
 
+  // ─ Wall corner trims / pilasters ─
+  const trimMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.color).multiplyScalar(1.18)});
+  const cornersX=[plot.cx-hw,plot.cx+hw];
+  const cornersZ=[plot.cz-hd,plot.cz+hd];
+  cornersX.forEach(cx2=>cornersZ.forEach(cz2=>{
+    const pillar=new THREE.Mesh(new THREE.BoxGeometry(.7,def.h,.7),trimMat);
+    pillar.position.set(cx2,def.h/2+.5,cz2);pillar.castShadow=true;scene.add(pillar);
+  }));
+
+  // ─ Cornice / top band ─
+  const corniceMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.color).multiplyScalar(1.22)});
+  const cornice=new THREE.Mesh(new THREE.BoxGeometry(def.w+1.0,.5,def.d+1.0),corniceMat);
+  cornice.position.set(plot.cx,def.h+.5+.25,plot.cz);scene.add(cornice);
+
+  // ─ Entry steps ─
+  const stepMat=new THREE.MeshLambertMaterial({color:0xbbb0a0});
+  for(let s=0;s<3;s++){
+    const sw=DOOR_W+1.2-s*.4,sd=.45;
+    const step=new THREE.Mesh(new THREE.BoxGeometry(sw,.18,sd),stepMat);
+    step.position.set(plot.cx,.6+s*.18,plot.cz+hd+.22+s*.45);
+    step.receiveShadow=true;scene.add(step);
+  }
+  // Entry canopy above door
+  const canopyMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.roofC).multiplyScalar(.9)});
+  const canopy=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+2,.2,1.8),canopyMat);
+  canopy.position.set(plot.cx,DOOR_H+1.1,plot.cz+hd+.85);canopy.castShadow=true;scene.add(canopy);
+  // Canopy support posts
+  [-1,1].forEach(s=>{
+    const post=new THREE.Mesh(new THREE.BoxGeometry(.18,DOOR_H+.6,.18),stepMat);
+    post.position.set(plot.cx+s*(DOOR_W/2+.8),.55+(DOOR_H+.6)/2,plot.cz+hd+1.6);scene.add(post);
+  });
+
+  // ─ Floor & Ceiling ─
   const flr=new THREE.Mesh(new THREE.BoxGeometry(def.w-.3,.15,def.d-.3),new THREE.MeshLambertMaterial({color:0xc2b090}));
   flr.position.set(plot.cx,.58,plot.cz);scene.add(flr);
   const ceil=new THREE.Mesh(new THREE.BoxGeometry(def.w,.25,def.d),new THREE.MeshLambertMaterial({color:0xd5cfc0}));
   ceil.position.set(plot.cx,def.h+.5,plot.cz);scene.add(ceil);
 
-  // Roof
+  // ─ Roof ─
   const roofMat=new THREE.MeshLambertMaterial({color:def.roofC});
+  const roofDarkMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.roofC).multiplyScalar(.72)});
   let roof;
   if(type==='office'||type==='gas_station'){
-    roof=new THREE.Mesh(new THREE.BoxGeometry(def.w+1.5,1.2,def.d+1.5),roofMat);
-    roof.position.set(plot.cx,def.h+.5+.6,plot.cz);
+    // Flat roof with parapet walls
+    roof=new THREE.Mesh(new THREE.BoxGeometry(def.w+1.5,.9,def.d+1.5),roofMat);
+    roof.position.set(plot.cx,def.h+.5+.45,plot.cz);
+    // Parapet
+    const parapetH=1.2;
+    [[def.w/2+.75,plot.cz,def.d+1.5,.5],[-def.w/2-.75,plot.cz,def.d+1.5,.5],
+     [plot.cx,plot.cz-def.d/2-.75,def.w+2,def.d]].forEach(([px,pz2,pw,pd])=>{});
+    // AC units on roof
+    const acMat=new THREE.MeshLambertMaterial({color:0xcccccc});
+    for(let ac=0;ac<3;ac++){
+      const acUnit=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.0,2.2),acMat);
+      acUnit.position.set(plot.cx+(ac-1)*3.5,def.h+.5+1.35,plot.cz-def.d*.25);scene.add(acUnit);
+      const acFan=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,.15,8),new THREE.MeshLambertMaterial({color:0x999999}));
+      acFan.position.set(plot.cx+(ac-1)*3.5,def.h+.5+1.9,plot.cz-def.d*.25);scene.add(acFan);
+    }
+    // Roof railing
+    [[0,-def.d/2-.75],[0,def.d/2+.75]].forEach(([ox,oz])=>{
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(def.w+2,.5,.25),roofDarkMat);
+      rail.position.set(plot.cx+ox,def.h+1.3+.5,plot.cz+oz);scene.add(rail);
+    });
   } else {
-    roof=new THREE.Mesh(new THREE.ConeGeometry(def.w*.8,def.h*.6,4),roofMat);
-    roof.position.set(plot.cx,def.h+.5+def.h*.3,plot.cz);roof.rotation.y=Math.PI/4;
-    const ridge=new THREE.Mesh(new THREE.BoxGeometry(.35,def.h*.62+.2,def.w*1.13),new THREE.MeshLambertMaterial({color:new THREE.Color(def.roofC).multiplyScalar(.7)}));
-    ridge.rotation.y=Math.PI/4;ridge.position.set(plot.cx,def.h+.5+def.h*.31,plot.cz);scene.add(ridge);
+    // Pitched roof with fascia boards
+    roof=new THREE.Mesh(new THREE.ConeGeometry(def.w*.82,def.h*.62,4),roofMat);
+    roof.position.set(plot.cx,def.h+.5+def.h*.31,plot.cz);roof.rotation.y=Math.PI/4;
+    const ridge=new THREE.Mesh(new THREE.BoxGeometry(.32,def.h*.64+.2,def.w*1.15),roofDarkMat);
+    ridge.rotation.y=Math.PI/4;ridge.position.set(plot.cx,def.h+.5+def.h*.32,plot.cz);scene.add(ridge);
+    // Fascia boards (eaves)
+    [[0,-hd-.3,'z'],[0,hd+.3,'z'],[-hw-.3,0,'x'],[hw+.3,0,'x']].forEach(([ox,oz,axis])=>{
+      const fLen=axis==='z'?def.w+.6:def.d+.6;
+      const fascia=new THREE.Mesh(new THREE.BoxGeometry(axis==='z'?fLen:.18,.28,axis==='x'?fLen:.18),roofDarkMat);
+      fascia.position.set(plot.cx+ox,def.h+.5+.14,plot.cz+oz);scene.add(fascia);
+    });
+    // Chimney (house types)
+    if(def.isHouse){
+      const chimneyMat=new THREE.MeshLambertMaterial({color:0x8b4040});
+      const chimney=new THREE.Mesh(new THREE.BoxGeometry(1.0,def.h*.55+.5,1.0),chimneyMat);
+      chimney.position.set(plot.cx+def.w*.22,def.h+.5+def.h*.28,plot.cz-def.d*.2);chimney.castShadow=true;scene.add(chimney);
+      const chimneyTop=new THREE.Mesh(new THREE.BoxGeometry(1.3,.28,1.3),new THREE.MeshLambertMaterial({color:0x6b3030}));
+      chimneyTop.position.set(plot.cx+def.w*.22,def.h+.5+def.h*.56,plot.cz-def.d*.2);scene.add(chimneyTop);
+    }
   }
   roof.castShadow=true;scene.add(roof);
 
-  // Windows
-  const glMat=new THREE.MeshLambertMaterial({color:0x88ccee,emissive:0x224466,emissiveIntensity:.4,transparent:true,opacity:.8});
-  const frMat=new THREE.MeshLambertMaterial({color:0xffffff});
+  // ─ Windows (detailed with shutters + muntins) ─
+  const glMat=new THREE.MeshLambertMaterial({color:0x88ccee,emissive:0x224466,emissiveIntensity:.4,transparent:true,opacity:.82});
+  const frMat=new THREE.MeshLambertMaterial({color:0xf0ede5});
+  const shutterMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.roofC).multiplyScalar(.85)});
+  const muntinMat=new THREE.MeshLambertMaterial({color:0xffffff});
+
   function addWindow(wx,wy,wz,axis){
-    const sx=axis==='x'?.12:1.4,sz=axis==='z'?.12:1.4;
-    const frame=new THREE.Mesh(new THREE.BoxGeometry(sx+.22,1.6+.22,sz+.22),frMat);
+    const sx=axis==='x'?.12:1.5,sz=axis==='z'?.12:1.5;
+    const wH=1.8;
+    // Outer frame
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(sx+.28,wH+.28,sz+.28),frMat);
     frame.position.set(wx,wy,wz);scene.add(frame);
-    const glass=new THREE.Mesh(new THREE.BoxGeometry(sx,1.6,sz),glMat);
+    // Glass
+    const glass=new THREE.Mesh(new THREE.BoxGeometry(sx,wH,sz),glMat);
     glass.position.set(wx,wy,wz);scene.add(glass);
+    // Muntin cross (window divider)
+    const mH=new THREE.Mesh(new THREE.BoxGeometry(sx+.04,.07,sz+.04),muntinMat);
+    mH.position.set(wx,wy+.1,wz);scene.add(mH);
+    const mV=new THREE.Mesh(new THREE.BoxGeometry(axis==='x'?.14:.07,wH+.04,axis==='z'?.14:.07),muntinMat);
+    mV.position.set(wx,wy,wz);scene.add(mV);
+    // Sill
+    const sill=new THREE.Mesh(new THREE.BoxGeometry(sx+.6,.18,sz+.6),frMat);
+    sill.position.set(wx,wy-wH/2-.09,wz);scene.add(sill);
+    // Shutters (house type only) - on sides
+    if(def.isHouse&&axis==='z'){
+      [-1,1].forEach(s=>{
+        const shutter=new THREE.Mesh(new THREE.BoxGeometry(.35,wH+.1,.12),shutterMat);
+        shutter.position.set(wx+s*(sx/2+.5),wy,wz);scene.add(shutter);
+        // Shutter slats
+        for(let sl=0;sl<4;sl++){
+          const slat=new THREE.Mesh(new THREE.BoxGeometry(.33,.06,.14),new THREE.MeshLambertMaterial({color:new THREE.Color(def.roofC).multiplyScalar(.7)}));
+          slat.position.set(wx+s*(sx/2+.5),wy-wH/2+.3+sl*(wH/4),wz);scene.add(slat);
+        }
+      });
+    }
   }
+
   const winCount=Math.max(1,Math.floor(def.w/6));
   for(let w=0;w<winCount;w++){
     const ox=(w-(winCount-1)/2)*5;
@@ -1318,10 +1422,32 @@ function buildOn(plot,type){
     }
   }
 
-  // Door frame
+  // ─ Door frame & door ─
   const dfMat=new THREE.MeshLambertMaterial({color:0x5c3010});
-  const doorFrame=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+.4,.25,DOOR_H+.25),dfMat);
+  const doorMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.color).multiplyScalar(.6)});
+  // Door panels
+  const door=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-.1,DOOR_H-.05,.22),doorMat);
+  door.position.set(plot.cx,DOOR_H/2+.5,plot.cz+hd+.12);scene.add(door);
+  // Door panel insets
+  [[0,.6],[0,-.35]].forEach(([px,py])=>{
+    const panel=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W*.62,.75,.26),dfMat);
+    panel.position.set(plot.cx+px,DOOR_H/2+.5+py,plot.cz+hd+.12);scene.add(panel);
+  });
+  // Door knob
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(.1,6,6),new THREE.MeshLambertMaterial({color:0xddbb44}));
+  knob.position.set(plot.cx+DOOR_W*.3,DOOR_H*.45+.5,plot.cz+hd+.24);scene.add(knob);
+  const doorFrame=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+.5,.28,DOOR_H+.28),new THREE.MeshLambertMaterial({color:0xf0ede5}));
   doorFrame.rotation.x=Math.PI/2;doorFrame.position.set(plot.cx,DOOR_H/2+.5,plot.cz+hd-.06);scene.add(doorFrame);
+  // Side pillars of door arch
+  [-1,1].forEach(s=>{
+    const dp=new THREE.Mesh(new THREE.BoxGeometry(.32,DOOR_H+.3,.32),frMat);
+    dp.position.set(plot.cx+s*(DOOR_W/2+.16),DOOR_H/2+.5,plot.cz+hd+.12);scene.add(dp);
+  });
+  // Transom window above door
+  const transom=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-.1,.55,.12),glMat);
+  transom.position.set(plot.cx,DOOR_H+.78,plot.cz+hd+.1);scene.add(transom);
+  const transomFrame=new THREE.Mesh(new THREE.BoxGeometry(DOOR_W+.12,.7,.14),frMat);
+  transomFrame.position.set(plot.cx,DOOR_H+.78,plot.cz+hd+.08);scene.add(transomFrame);
 
   // Interior light
   const intLight=new THREE.PointLight(0xfff0cc,.45,def.w*1.6);
@@ -3111,35 +3237,175 @@ function updateNPCChat(dt){
 function buildCarMesh(def,cx,cz){
   const g=new THREE.Group();
   const bodyMat=new THREE.MeshLambertMaterial({color:def.color});
-  const glassMat=new THREE.MeshLambertMaterial({color:0x88ccee,transparent:true,opacity:.7});
-  const tireMat=new THREE.MeshLambertMaterial({color:0x1a1a1a});
-  const rimMat=new THREE.MeshLambertMaterial({color:0xcccccc});
-  const chromeMat=new THREE.MeshLambertMaterial({color:0xdddddd});
+  const body2Mat=new THREE.MeshLambertMaterial({color:def.color2||def.color});
+  const glassMat=new THREE.MeshLambertMaterial({color:0x88ccee,transparent:true,opacity:.75});
+  const tireMat=new THREE.MeshLambertMaterial({color:0x111111});
+  const rimMat=new THREE.MeshLambertMaterial({color:0xdddddd});
+  const chromeMat=new THREE.MeshLambertMaterial({color:0xe8e8e8});
+  const darkMat=new THREE.MeshLambertMaterial({color:0x222222});
+  const rubberMat=new THREE.MeshLambertMaterial({color:0x1a1a1a});
   const bodyH=def.h*.55;
+
+  // ─ Main body lower ─
   const body=new THREE.Mesh(new THREE.BoxGeometry(def.w,bodyH,def.d),bodyMat);
   body.position.y=bodyH/2+.45;body.castShadow=true;g.add(body);
-  const cabW=def.w*.62,cabH=def.h*.48,cabD=def.d*.72;
+
+  // ─ Body side skirts (lower trim) ─
+  [-1,1].forEach(s=>{
+    const skirt=new THREE.Mesh(new THREE.BoxGeometry(.08,.18,def.d*.88),darkMat);
+    skirt.position.set(s*(def.w/2+.04),bodyH*.2+.45,0);g.add(skirt);
+  });
+
+  // ─ Cabin / roof ─
+  const cabW=def.w*.60,cabH=def.h*.46,cabD=def.d*.70;
   const cabin=new THREE.Mesh(new THREE.BoxGeometry(cabW,cabH,cabD),bodyMat);
-  cabin.position.set(-.1,bodyH+cabH/2+.45,.0);g.add(cabin);
-  const wsF=new THREE.Mesh(new THREE.BoxGeometry(cabW-.2,cabH-.1,.1),glassMat);
-  wsF.position.set(-.1,bodyH+cabH/2+.45,cabD/2);g.add(wsF);
-  const bumperF=new THREE.Mesh(new THREE.BoxGeometry(def.w-.1,.25,def.d*.12),chromeMat);
-  bumperF.position.set(0,.3+bodyH*.15,def.d/2+.06);g.add(bumperF);
-  const hlMat=new THREE.MeshLambertMaterial({color:0xffffee,emissive:0xffffcc,emissiveIntensity:.6});
-  const tlMat=new THREE.MeshLambertMaterial({color:0xff2222,emissive:0xff1111,emissiveIntensity:.5});
-  [-def.d*.35,def.d*.35].forEach(z=>{
-    const hl=new THREE.Mesh(new THREE.BoxGeometry(.2,.22,.22),z>0?hlMat:tlMat);
-    hl.position.set(def.w/2-.1,.5+bodyH*.3,z);g.add(hl);
-    const hlL=hl.clone();hlL.position.x=-def.w/2+.1;g.add(hlL);
+  cabin.position.set(-.1,bodyH+cabH/2+.45,-.05);g.add(cabin);
+
+  // ─ Windshields (front + rear) ─
+  const wsFront=new THREE.Mesh(new THREE.BoxGeometry(cabW-.15,cabH-.08,.09),glassMat);
+  wsFront.position.set(-.1,bodyH+cabH/2+.45,cabD/2+.01);g.add(wsFront);
+  const wsRear=new THREE.Mesh(new THREE.BoxGeometry(cabW-.15,cabH-.12,.09),glassMat);
+  wsRear.position.set(-.1,bodyH+cabH/2+.45,-cabD/2-.01);g.add(wsRear);
+
+  // ─ Side windows ─
+  [-1,1].forEach(s=>{
+    const sw=new THREE.Mesh(new THREE.BoxGeometry(.07,cabH*.7,cabD*.85),glassMat);
+    sw.position.set(s*(cabW/2+.03),bodyH+cabH*.55+.45,-.05);g.add(sw);
+    // Window trim
+    const trim=new THREE.Mesh(new THREE.BoxGeometry(.1,cabH*.72,cabD*.88),chromeMat);
+    trim.position.set(s*(cabW/2+.05),bodyH+cabH*.55+.45,-.05);
+    const trimMesh=trim;trimMesh.scale.set(1,1,1);g.add(trimMesh);
   });
-  const wheelGeo=new THREE.CylinderGeometry(.45,.45,.3,20);
-  [[def.w/2+.08,.45,def.d*.32],[def.w/2+.08,.45,-def.d*.32],[-def.w/2-.08,.45,def.d*.32],[-def.w/2-.08,.45,-def.d*.32]].forEach(([wx,wy,wz])=>{
+
+  // ─ Door seams ─
+  [-1,1].forEach(s=>{
+    const seam=new THREE.Mesh(new THREE.BoxGeometry(.04,.5,def.d*.75),darkMat);
+    seam.position.set(s*(def.w/2+.02),bodyH*.5+.45,.0);g.add(seam);
+    // Door handle
+    const handle=new THREE.Mesh(new THREE.BoxGeometry(.12,.1,.5),chromeMat);
+    handle.position.set(s*(def.w/2+.07),bodyH*.65+.45,0);g.add(handle);
+  });
+
+  // ─ Hood ─
+  const hood=new THREE.Mesh(new THREE.BoxGeometry(def.w*.92,.12,def.d*.38),body2Mat);
+  hood.position.set(0,bodyH+.45+.06,def.d*.31);g.add(hood);
+  // Hood crease
+  const hoodCrease=new THREE.Mesh(new THREE.BoxGeometry(def.w*.14,.05,def.d*.36),darkMat);
+  hoodCrease.position.set(0,bodyH+.45+.13,def.d*.31);g.add(hoodCrease);
+
+  // ─ Trunk lid ─
+  const trunk=new THREE.Mesh(new THREE.BoxGeometry(def.w*.92,.1,def.d*.32),body2Mat);
+  trunk.position.set(0,bodyH+.45+.05,-def.d*.30);g.add(trunk);
+
+  // ─ Front grille ─
+  const grilleBase=new THREE.Mesh(new THREE.BoxGeometry(def.w*.6,.3,.07),darkMat);
+  grilleBase.position.set(0,bodyH*.38+.45,def.d/2+.04);g.add(grilleBase);
+  // Grille slats
+  for(let gi=0;gi<3;gi++){
+    const slat=new THREE.Mesh(new THREE.BoxGeometry(def.w*.58,.04,.08),chromeMat);
+    slat.position.set(0,bodyH*.28+.45+gi*.09,def.d/2+.04);g.add(slat);
+  }
+
+  // ─ Front & rear bumpers ─
+  const bumperF=new THREE.Mesh(new THREE.BoxGeometry(def.w+.05,.32,def.d*.14),darkMat);
+  bumperF.position.set(0,.32+.45,def.d/2+.07);g.add(bumperF);
+  const bumperFChrome=new THREE.Mesh(new THREE.BoxGeometry(def.w-.1,.14,def.d*.12),chromeMat);
+  bumperFChrome.position.set(0,.26+.45,def.d/2+.1);g.add(bumperFChrome);
+  const bumperR=new THREE.Mesh(new THREE.BoxGeometry(def.w+.05,.28,def.d*.14),darkMat);
+  bumperR.position.set(0,.30+.45,-def.d/2-.07);g.add(bumperR);
+
+  // ─ Headlights (detailed) ─
+  const hlMat=new THREE.MeshLambertMaterial({color:0xffffee,emissive:0xffffcc,emissiveIntensity:.8});
+  const hlLensMat=new THREE.MeshLambertMaterial({color:0xaaddff,transparent:true,opacity:.9});
+  const tlMat=new THREE.MeshLambertMaterial({color:0xff3311,emissive:0xff1100,emissiveIntensity:.7});
+  [-1,1].forEach(s=>{
+    // Front headlight housing
+    const hlHouse=new THREE.Mesh(new THREE.BoxGeometry(.55,.22,.12),darkMat);
+    hlHouse.position.set(s*(def.w*.35),bodyH*.72+.45,def.d/2+.05);g.add(hlHouse);
+    const hlLens=new THREE.Mesh(new THREE.BoxGeometry(.45,.17,.08),hlLensMat);
+    hlLens.position.set(s*(def.w*.35),bodyH*.72+.45,def.d/2+.1);g.add(hlLens);
+    const hl=new THREE.Mesh(new THREE.BoxGeometry(.28,.12,.06),hlMat);
+    hl.position.set(s*(def.w*.35),bodyH*.72+.45,def.d/2+.12);g.add(hl);
+    // DRL strip
+    const drl=new THREE.Mesh(new THREE.BoxGeometry(.5,.04,.06),hlMat);
+    drl.position.set(s*(def.w*.35),bodyH*.62+.45,def.d/2+.1);g.add(drl);
+    // Tail lights
+    const tlHouse=new THREE.Mesh(new THREE.BoxGeometry(.55,.24,.1),darkMat);
+    tlHouse.position.set(s*(def.w*.35),bodyH*.72+.45,-def.d/2-.05);g.add(tlHouse);
+    const tl=new THREE.Mesh(new THREE.BoxGeometry(.45,.2,.07),tlMat);
+    tl.position.set(s*(def.w*.35),bodyH*.72+.45,-def.d/2-.1);g.add(tl);
+  });
+
+  // ─ Side mirrors ─
+  [-1,1].forEach(s=>{
+    const mirrorArm=new THREE.Mesh(new THREE.BoxGeometry(.28,.06,.12),body2Mat);
+    mirrorArm.position.set(s*(cabW/2+.14),bodyH+cabH*.85+.45,cabD*.42);g.add(mirrorArm);
+    const mirrorHead=new THREE.Mesh(new THREE.BoxGeometry(.22,.18,.28),darkMat);
+    mirrorHead.position.set(s*(cabW/2+.25),bodyH+cabH*.82+.45,cabD*.42);g.add(mirrorHead);
+    const mirrorGlass=new THREE.Mesh(new THREE.BoxGeometry(.18,.14,.06),glassMat);
+    mirrorGlass.position.set(s*(cabW/2+.25),bodyH+cabH*.82+.45,cabD*.42+.14);g.add(mirrorGlass);
+  });
+
+  // ─ Exhaust pipe(s) ─
+  if(def.name!=='SUV'){
+    const exhaust=new THREE.Mesh(new THREE.CylinderGeometry(.06,.07,.22,8),chromeMat);
+    exhaust.rotation.z=Math.PI/2;
+    exhaust.position.set(-def.w*.28,.28+.45,-def.d/2-.1);g.add(exhaust);
+  }
+
+  // ─ Spoiler (Sports car only) ─
+  if(def.name==='Sports Car'){
+    const spoilerL=new THREE.Mesh(new THREE.BoxGeometry(.1,.6,.1),body2Mat);
+    spoilerL.position.set(def.w*.32,bodyH+.45,-def.d*.44);g.add(spoilerL);
+    const spoilerR=spoilerL.clone();spoilerR.position.x=-def.w*.32;g.add(spoilerR);
+    const spoilerWing=new THREE.Mesh(new THREE.BoxGeometry(def.w*.78,.08,.48),body2Mat);
+    spoilerWing.position.set(0,bodyH+.45+.6,-def.d*.44);g.add(spoilerWing);
+  }
+
+  // ─ Truck bed (Truck only) ─
+  if(def.name==='Pickup Truck'){
+    const bedFloor=new THREE.Mesh(new THREE.BoxGeometry(def.w*.9,.1,def.d*.45),body2Mat);
+    bedFloor.position.set(0,bodyH+.45,-def.d*.26);g.add(bedFloor);
+    const bedFront=new THREE.Mesh(new THREE.BoxGeometry(def.w*.9,.55,.1),body2Mat);
+    bedFront.position.set(0,bodyH+.72+.45,-def.d*.02);g.add(bedFront);
+    [-1,1].forEach(s=>{
+      const bedSide=new THREE.Mesh(new THREE.BoxGeometry(.1,.5,def.d*.45),body2Mat);
+      bedSide.position.set(s*def.w*.45,bodyH+.7+.45,-def.d*.26);g.add(bedSide);
+    });
+  }
+
+  // ─ Detailed Wheels ─
+  const wR=0.42;
+  [[def.w/2+.1,.45,def.d*.30],[def.w/2+.1,.45,-def.d*.30],
+   [-def.w/2-.1,.45,def.d*.30],[-def.w/2-.1,.45,-def.d*.30]].forEach(([wx,wy,wz],wi)=>{
     const wgrp=new THREE.Group();
-    const tire=new THREE.Mesh(wheelGeo,tireMat);tire.rotation.z=Math.PI/2;
-    const rim=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.32,8),rimMat);rim.rotation.z=Math.PI/2;
-    wgrp.add(tire);wgrp.add(rim);wgrp.position.set(wx,wy,wz);g.add(wgrp);
+    // Tire
+    const tire=new THREE.Mesh(new THREE.CylinderGeometry(wR,wR,.32,20),tireMat);
+    tire.rotation.z=Math.PI/2;wgrp.add(tire);
+    // Rim outer face
+    const rimFace=new THREE.Mesh(new THREE.CylinderGeometry(wR*.74,wR*.74,.04,12),rimMat);
+    rimFace.rotation.z=Math.PI/2;rimFace.position.x=.18;wgrp.add(rimFace);
+    // Rim spokes
+    for(let sp=0;sp<5;sp++){
+      const angle=sp*(Math.PI*2/5);
+      const spoke=new THREE.Mesh(new THREE.BoxGeometry(.28,.07,.07),rimMat);
+      spoke.position.set(.17,Math.sin(angle)*wR*.44,Math.cos(angle)*wR*.44);
+      spoke.rotation.x=angle;wgrp.add(spoke);
+    }
+    // Center cap
+    const cap=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,.05,8),chromeMat);
+    cap.rotation.z=Math.PI/2;cap.position.x=.2;wgrp.add(cap);
+    // Wheel arch (body-colored cover)
+    const arch=new THREE.Mesh(new THREE.CylinderGeometry(wR+.08,wR+.08,.28,20,1,true,Math.PI*.1,Math.PI*.8),bodyMat);
+    arch.rotation.z=Math.PI/2;arch.position.x=wx>0?.06:-.06;wgrp.add(arch);
+    wgrp.position.set(wx,wy,wz);g.add(wgrp);
   });
-  g.position.set(cx,.0,cz);g.castShadow=true;scene.add(g);
+
+  // ─ Undercarriage ─
+  const chassis=new THREE.Mesh(new THREE.BoxGeometry(def.w*.85,.18,def.d*.82),rubberMat);
+  chassis.position.y=.2;g.add(chassis);
+
+  g.position.set(cx,0,cz);g.castShadow=true;scene.add(g);
   return g;
 }
 
@@ -3915,19 +4181,20 @@ function updateCarnivalAnimations(dt){
 // ── GAME LOOP ─────────────────────────────────────────────────
 const GRAVITY=-22,JUMP=9,SPEED=10,SPRINT=22,FLY=16;
 let last=0;
+let _loopTick=0; // throttle counter for expensive per-frame ops
 
 function loop(ts){
   requestAnimationFrame(loop);
-  const dt=Math.min((ts-last)/1000,.05);last=ts;
+  const dt=Math.min((ts-last)/1000,.04);last=ts;
+  _loopTick++;
 
   updateSky(dt);
   updateClouds(dt);
   updateWeather(dt);
   updateElevators(dt);
-  updateZooAnimals(dt);
+  updateZooAnimals(dt);   // only once (was called twice before)
   updateCampfires(dt);
   updateCityCenter(dt);
-  updateZooAnimals(dt);
   updateDriving(dt);
   updateBus(dt);
   updateCupCars(dt);
@@ -3986,7 +4253,9 @@ function loop(ts){
 
   updateNametags();
   updateNPCChat(dt);
-  drawMinimap();
+  // Throttle: minimap every 3 frames, compass every 2 frames
+  if(_loopTick%3===0)drawMinimap();
+  if(_loopTick%2===0)updateCompass();
   renderer.render(scene,camera);
 }
 
@@ -4292,6 +4561,152 @@ document.getElementById('btn-join').onclick=()=>{
 window.addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);
 });
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE MULTIPLAYER  —  terra_world_v12
+// Replace the firebaseConfig values below with your project's
+// config from https://console.firebase.google.com
+// ══════════════════════════════════════════════════════════════
+(function initFirebase(){
+  // ── 1. PASTE YOUR FIREBASE CONFIG HERE ──────────────────────
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDE-3z4ufv4UdC9hT14S7fKJ1_RKM0pRXE",
+    authDomain:        "terra-7d5c4.firebaseapp.com",
+    databaseURL:       "https://terra-7d5c4-default-rtdb.firebaseio.com",
+    projectId:         "terra-7d5c4",
+    storageBucket:     "terra-7d5c4.firebasestorage.app",
+    messagingSenderId: "578894194870",
+    appId:             "1:578894194870:web:afefe6332337b18bfd1e17",
+    measurementId:     "G-X6BGR9NT0V"
+  };
+  // ─────────────────────────────────────────────────────────────
+  // Guard: skip if placeholders not replaced yet
+  if(firebaseConfig.apiKey==='YOUR_API_KEY'){
+    console.warn('[TerraWorld] Firebase not configured — multiplayer offline. See setup instructions.');
+    return;
+  }
+
+  // ── Dynamic SDK import (no npm needed) ──────────────────────
+  const SDK='https://www.gstatic.com/firebasejs/10.12.2/';
+  Promise.all([
+    import(SDK+'firebase-app.js'),
+    import(SDK+'firebase-database.js'),
+    import(SDK+'firebase-auth.js')
+  ]).then(([{initializeApp},{getDatabase,ref,set,onValue,onDisconnect,serverTimestamp,remove,off},{getAuth,signInAnonymously}])=>{
+
+    const app  = initializeApp(firebaseConfig);
+    const db   = getDatabase(app);
+    const auth = getAuth(app);
+
+    let myUid=null;
+    let roomRef=null;
+    let presenceRef=null;
+    const remotePlayers={};  // uid → THREE.Group
+
+    // ── Anonymous sign-in ────────────────────────────────────
+    signInAnonymously(auth).then(cred=>{
+      myUid=cred.user.uid;
+      console.log('[TerraWorld] Firebase UID:',myUid);
+      joinFirebaseRoom(window._twRoomCode||'PUBLIC');
+    }).catch(e=>console.warn('[TerraWorld] Firebase auth failed:',e));
+
+    // ── Join / create room ───────────────────────────────────
+    function joinFirebaseRoom(code){
+      roomRef=ref(db,`rooms/${code}`);
+      presenceRef=ref(db,`rooms/${code}/players/${myUid}`);
+
+      // Write own presence, auto-remove on disconnect
+      onDisconnect(presenceRef).remove();
+
+      // Broadcast own state every 200ms
+      setInterval(broadcastFirebase,200);
+
+      // Listen for other players
+      onValue(ref(db,`rooms/${code}/players`),snap=>{
+        const data=snap.val()||{};
+        Object.keys(data).forEach(uid=>{
+          if(uid===myUid)return;
+          const pd=data[uid];
+          if(!remotePlayers[uid]){
+            // Spawn remote player mesh
+            const mesh=buildPlayerMesh(pd.color||0x44aaff);
+            scene.add(mesh);
+            remotePlayers[uid]={mesh,label:makeRemoteLabel(pd.name||'?')};
+          }
+          const rp=remotePlayers[uid];
+          if(pd.x!==undefined){rp.mesh.position.set(pd.x,pd.y,pd.z);}
+          if(pd.ry!==undefined){rp.mesh.rotation.y=pd.ry;}
+          if(rp.label)rp.label.el.textContent=pd.name||uid.slice(0,6);
+          rp.lastSeen=Date.now();
+        });
+        // Remove stale players (disconnected > 5 s)
+        Object.keys(remotePlayers).forEach(uid=>{
+          if(!data[uid]){
+            scene.remove(remotePlayers[uid].mesh);
+            remotePlayers[uid].label?.el?.remove();
+            delete remotePlayers[uid];
+          }
+        });
+      });
+
+      // Chat listener
+      onValue(ref(db,`rooms/${code}/chat`),snap=>{
+        const msgs=snap.val();if(!msgs)return;
+        const keys=Object.keys(msgs).sort();
+        const latest=msgs[keys[keys.length-1]];
+        if(latest&&latest.uid!==myUid&&latest.text){
+          sysMsg(`💬 <b>${latest.name||'?'}</b>: ${latest.text}`);
+        }
+      });
+
+      window._fbSendChat=function(text){
+        if(!roomRef||!myUid)return;
+        set(ref(db,`rooms/${code}/chat/${Date.now()}_${myUid.slice(0,4)}`),{
+          uid:myUid,name:player.name,text,ts:serverTimestamp()
+        });
+      };
+
+      window._fbRoom=code;
+      sysMsg(`🌐 Firebase room <b>${code}</b> joined — multiplayer active!`);
+    }
+
+    function broadcastFirebase(){
+      if(!presenceRef||!myUid)return;
+      set(presenceRef,{
+        name:player.name,
+        color:player.color||0xffaa55,
+        x:+playerMesh.position.x.toFixed(2),
+        y:+playerMesh.position.y.toFixed(2),
+        z:+playerMesh.position.z.toFixed(2),
+        ry:+playerMesh.rotation.y.toFixed(3),
+        coins:player.coins,
+        job:player.job,
+        ts:serverTimestamp()
+      });
+    }
+
+    function makeRemoteLabel(name){
+      const el=document.createElement('div');
+      el.className='nametag';el.textContent=name;
+      document.getElementById('hud').appendChild(el);
+      return{el};
+    }
+
+    // Hook into existing chat send (look for chat-send button)
+    setTimeout(()=>{
+      const chatSend=document.getElementById('chat-send');
+      const chatInput=document.getElementById('chat-msg');
+      if(chatSend&&chatInput){
+        chatSend.addEventListener('click',()=>{
+          const t=chatInput.value.trim();
+          if(t&&window._fbSendChat){window._fbSendChat(t);chatInput.value='';}
+        });
+      }
+    },3000);
+
+  }).catch(e=>console.warn('[TerraWorld] Firebase SDK load failed:',e));
+})();
+// ══════════════════════════════════════════════════════════════
 </script>
 </body>
 </html>
