@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TERRA WORLD v12</title>
+<title>B5VILLE</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -314,6 +314,10 @@ canvas#world{display:block;position:fixed;inset:0;}
     <button class="gbtn hi" id="btn-new">Play</button>
   </div>
   <div class="irow">
+    <input class="tf" id="room-name-input" type="text" placeholder="Create room name (optional)..." maxlength="12" style="text-transform:uppercase;"/>
+    <button class="gbtn" id="btn-new-room" onclick="(()=>{const n=document.getElementById('pname').value.trim();const r=document.getElementById('room-name-input').value.trim().toUpperCase();if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}startGame(n,r||('ROOM'+(Math.random().toString(36).slice(2,5).toUpperCase())));})()">Create</button>
+  </div>
+  <div class="irow">
     <input class="tf" id="join-id" type="text" placeholder="Room code to join..." maxlength="20"/>
     <button class="gbtn" id="btn-join">Join Room</button>
   </div>
@@ -322,7 +326,7 @@ canvas#world{display:block;position:fixed;inset:0;}
 
 <div id="hud">
   <div id="topbar">
-    <div id="srv-lbl">TERRA WORLD <span id="room-code-lbl" style="font-size:9px;color:#7a6030;letter-spacing:2px;margin-left:8px;cursor:pointer;" title="Click to copy room code" onclick="copyRoomCode()"></span></div>
+    <div id="srv-lbl">B5VILLE <span id="room-code-lbl" style="font-size:9px;color:#7a6030;letter-spacing:2px;margin-left:8px;cursor:pointer;" title="Click to copy room code" onclick="copyRoomCode()"></span></div>
     <div id="clock-wrap">
       <div id="time-lbl">MORNING</div>
       <div id="day-lbl">DAY 1</div>
@@ -378,6 +382,7 @@ canvas#world{display:block;position:fixed;inset:0;}
     <div class="si tc" onclick="startPlace('home_depot')"><div><div class="sin">🔨 Home Depot</div><div class="sim">Buy furniture &amp; supplies</div></div><div class="sip">350 ₿5</div></div>
     <div class="si tr" onclick="startPlace('hospital')"><div><div class="sin">🏥 Hospital</div><div class="sim">Restore health · earns 20 ₿5/min</div></div><div class="sip">500 ₿5</div></div>
     <div class="si tc" onclick="startPlace('police')"><div><div class="sin">🚔 Police Station</div><div class="sim">Clear wanted level · earns 15 ₿5/min</div></div><div class="sip">400 ₿5</div></div>
+    <div class="si tr" onclick="startPlace('fire_station')"><div><div class="sin">🚒 Fire Station</div><div class="sim">Respond to fires · earns 15 ₿5/min</div></div><div class="sip">450 ₿5</div></div>
     <div class="si te" onclick="startPlace('bank')"><div><div class="sin">🏦 Bank</div><div class="sim">Deposit savings · earns 25 ₿5/min</div></div><div class="sip">600 ₿5</div></div>
     <div class="si tr" onclick="startPlace('cinema')"><div><div class="sin">🎬 Cinema</div><div class="sim">+Fun · earns 16 ₿5/min</div></div><div class="sip">350 ₿5</div></div>
     <div class="si tc" onclick="startPlace('library')"><div><div class="sin">📚 Library</div><div class="sim">+Job XP boost · earns 10 ₿5/min</div></div><div class="sip">280 ₿5</div></div>
@@ -412,6 +417,7 @@ canvas#world{display:block;position:fixed;inset:0;}
     <div class="si ji" id="j-busdriver"   onclick="selectJob('busdriver')"><div><div class="sin">🚌 Bus Driver</div><div class="sim">Drive the city bus</div></div><div class="sip">10 ₿5/min</div></div>
     <div class="si ji" id="j-doctor"      onclick="selectJob('doctor')"><div><div class="sin">🩺 Doctor</div><div class="sim">Heal patients in hospital</div></div><div class="sip">18 ₿5/min</div></div>
     <div class="si ji" id="j-police"      onclick="selectJob('police_off')"><div><div class="sin">👮 Police Officer</div><div class="sim">Keep the peace</div></div><div class="sip">13 ₿5/min</div></div>
+    <div class="si ji" id="j-firefighter" onclick="selectJob('firefighter')"><div><div class="sin">🧑‍🚒 Firefighter</div><div class="sim">Fight fires · drive firetruck</div></div><div class="sip">15 ₿5/min</div></div>
     <div class="si ji" id="j-banker"      onclick="selectJob('banker')"><div><div class="sin">💰 Banker</div><div class="sim">Manage the bank</div></div><div class="sip">20 ₿5/min</div></div>
     <div class="si ji" id="j-teacher"     onclick="selectJob('teacher')"><div><div class="sin">🏫 Teacher</div><div class="sim">Educate citizens</div></div><div class="sip">11 ₿5/min</div></div>
   </div>
@@ -523,7 +529,7 @@ canvas#world{display:block;position:fixed;inset:0;}
     <span id="wanted-timer" style="font-size:8px;color:#ff9999;margin-top:2px;display:block;"></span>
   </div>
 
-  <div id="quest-panel" style="position:absolute;top:110px;left:16px;background:var(--panel);border:1px solid var(--border);width:200px;display:none;pointer-events:none;">
+  <div id="quest-panel" style="position:absolute;top:110px;left:16px;background:var(--panel);border:1px solid var(--border);width:220px;display:none;pointer-events:all;z-index:40;">
     <div class="lb-title">📋 QUESTS</div>
     <div id="quest-list"></div>
   </div>
@@ -578,7 +584,7 @@ canvas#world{display:block;position:fixed;inset:0;}
 
   <div id="ctrl-hint">
     <span>WASD·Move</span><span>Mouse·Look</span><span>Space·Jump</span>
-    <span>Shift·Sprint</span><span>G·Fly</span><span>Q·Quests</span><span>E·Interact</span>
+    <span>Shift·Sprint</span><span>G·Fly</span><span>Q·Quests</span><span>E·Interact</span><span>N·Hire NPC</span>
     <span>F·Exit vehicle</span><span>I·Furniture</span><span>T·Chat</span><span>M·Music</span>
     <span>R·Water Crops</span><span>H·Harvest</span><span>L·Leaderboard</span>
   </div>
@@ -618,7 +624,7 @@ canvas#world{display:block;position:fixed;inset:0;}
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
-//  TERRA WORLD v6
+//  B5VILLE v6
 // ═══════════════════════════════════════════════════════════════
 
 // ── Renderer ──────────────────────────────────────────────────
@@ -1128,6 +1134,7 @@ const BLDG_DEFS={
   home_depot:    {name:'Home Depot',     cost:350, color:0xf07020,roofC:0xd04000,w:18,h:8, d:18,isHouse:false,income:12},
   hospital:      {name:'Hospital',       cost:500, color:0xfafafa,roofC:0xdd2222,w:18,h:12,d:18,isHouse:false,income:20,isHospital:true},
   police:        {name:'Police Station', cost:400, color:0x334488,roofC:0x111144,w:16,h:9, d:16,isHouse:false,income:15,isPolice:true},
+  fire_station:  {name:'Fire Station',   cost:450, color:0xdd3300,roofC:0x991100,w:18,h:10,d:18,isHouse:false,income:15,isFireStation:true},
   bank:          {name:'Bank',           cost:600, color:0xd4c080,roofC:0x8a6820,w:16,h:12,d:16,isHouse:false,income:25,isBank:true},
   cinema:        {name:'Cinema',         cost:350, color:0x111122,roofC:0x000011,w:18,h:10,d:18,isHouse:false,income:16,isCinema:true},
   library:       {name:'Library',        cost:280, color:0xaa8855,roofC:0x6a4a22,w:16,h:8, d:16,isHouse:false,income:10,isLibrary:true},
@@ -1155,66 +1162,77 @@ function addFloorToHouse(plot,free=false){
   const def=plot.def;
   const hw=def.w/2,hd=def.d/2;
   const baseH=def.h;
-  const floorH=4.5;
-  const yBase=baseH+.5+floorNum*floorH;
+  const floorH=5.0;
+  // yBase is the BOTTOM of this new floor — sits on top of all previous floors
+  const yBase=baseH+.5+(floorNum-1)*floorH;
+
   const wMat=new THREE.MeshLambertMaterial({color:new THREE.Color(def.color).multiplyScalar(0.9+floorNum*0.02)});
   const glMat=new THREE.MeshLambertMaterial({color:0x88ccee,emissive:0x224466,emissiveIntensity:.4,transparent:true,opacity:.8});
   const frMat=new THREE.MeshLambertMaterial({color:0xffffff});
 
-  // 4 walls
-  const addW=(wx,wy,wz,sx,sy,sz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),wMat);m.position.set(wx,wy,wz);m.castShadow=true;scene.add(m);};
-  addW(plot.cx,yBase+floorH/2,plot.cz-hd,def.w,floorH,.5);
-  addW(plot.cx,yBase+floorH/2,plot.cz+hd,def.w,floorH,.5);
-  addW(plot.cx-hw,yBase+floorH/2,plot.cz,.5,floorH,def.d);
-  addW(plot.cx+hw,yBase+floorH/2,plot.cz,.5,floorH,def.d);
+  // Floor slab (bottom of new floor)
+  const flrSlab=new THREE.Mesh(new THREE.BoxGeometry(def.w+.2,.3,def.d+.2),new THREE.MeshLambertMaterial({color:0xaaa090}));
+  flrSlab.position.set(plot.cx,yBase+.15,plot.cz);flrSlab.castShadow=true;scene.add(flrSlab);
 
-  // Floor slab
-  const flr=new THREE.Mesh(new THREE.BoxGeometry(def.w-.3,.2,def.d-.3),new THREE.MeshLambertMaterial({color:0xc2b090}));
-  flr.position.set(plot.cx,yBase+.1,plot.cz);scene.add(flr);
+  // 4 walls on this floor
+  const addW=(wx,wy,wz,sx,sy,sz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),wMat);m.position.set(wx,wy,wz);m.castShadow=true;scene.add(m);};
+  addW(plot.cx,yBase+floorH/2+.3,plot.cz-hd,def.w,floorH,.5);
+  addW(plot.cx,yBase+floorH/2+.3,plot.cz+hd,def.w,floorH,.5);
+  addW(plot.cx-hw,yBase+floorH/2+.3,plot.cz,.5,floorH,def.d);
+  addW(plot.cx+hw,yBase+floorH/2+.3,plot.cz,.5,floorH,def.d);
 
   // Windows on new floor
   const winCount=Math.max(1,Math.floor(def.w/6));
   for(let w=0;w<winCount;w++){
     const ox=(w-(winCount-1)/2)*5;
-    ['front','back'].forEach((side,si)=>{
+    ['front','back'].forEach(side=>{
       const wz=side==='front'?plot.cz+hd+.05:plot.cz-hd-.05;
       const frame=new THREE.Mesh(new THREE.BoxGeometry(1.62,1.82,.22),frMat);
-      frame.position.set(plot.cx+ox,yBase+floorH*.5,wz);scene.add(frame);
+      frame.position.set(plot.cx+ox,yBase+floorH*.5+.3,wz);scene.add(frame);
       const glass=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.6,.12),glMat);
-      glass.position.set(plot.cx+ox,yBase+floorH*.5,wz);scene.add(glass);
+      glass.position.set(plot.cx+ox,yBase+floorH*.5+.3,wz);scene.add(glass);
     });
   }
 
-  // Interior staircase between floors (visual ramp)
+  // Interior staircase
   const stairMat=new THREE.MeshLambertMaterial({color:0x8a7060});
-  for(let s=0;s<6;s++){
+  for(let s=0;s<7;s++){
     const step=new THREE.Mesh(new THREE.BoxGeometry(1.5,.15,1),stairMat);
-    step.position.set(plot.cx-2,yBase-floorH*.45+s*.75,plot.cz-3+s*.5);scene.add(step);
+    step.position.set(plot.cx-2,yBase+.3+s*.68,plot.cz-3+s*.5);scene.add(step);
   }
 
-  // Elevator shaft (visual column)
+  // Exterior ladder on side wall
   if(floorNum===1){
-    const shaftMat=new THREE.MeshLambertMaterial({color:0x666666});
-    const shaft=new THREE.Mesh(new THREE.BoxGeometry(1.5,baseH+floorH*5,.8),shaftMat);
-    shaft.position.set(plot.cx+hw-1.5,baseH/2+floorH*2.5,plot.cz-hd+.5);scene.add(shaft);
-    const door=new THREE.Mesh(new THREE.BoxGeometry(1.2,2,.06),new THREE.MeshLambertMaterial({color:0xaaaacc,emissive:0x4444aa,emissiveIntensity:.3}));
-    door.position.set(plot.cx+hw-1.5,yBase+1,plot.cz-hd+.8);scene.add(door);
+    const ladderMat=new THREE.MeshLambertMaterial({color:0x888888});
+    // Two vertical rails
+    [-1,1].forEach(s=>{
+      const rail=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,baseH+floorH*5,.6),ladderMat);
+      rail.position.set(plot.cx-hw-.2+s*.4,baseH/2+floorH*2.5,.5,plot.cz+hd+.3);
+      const r=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,baseH+floorH*5,6),ladderMat);
+      r.position.set(plot.cx-hw-.25+s*.5,(baseH+.5+floorH*plot.extraFloors)/2,plot.cz+hd+.28);scene.add(r);
+    });
+    // Rungs
+    const totalH=baseH+.5+floorH*plot.extraFloors;
+    for(let r=0;r<Math.ceil(totalH/0.6);r++){
+      const rung=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.7,6),ladderMat);
+      rung.rotation.z=Math.PI/2;
+      rung.position.set(plot.cx-hw-.25,.5+r*.6,plot.cz+hd+.28);scene.add(rung);
+    }
   }
 
-  // Replace old roof with new one on top floor
-  // (old roof stays as floor separator, new cone roof on top)
-  const roofMat=new THREE.MeshLambertMaterial({color:def.roofC});
+  // Move roof to top of new floor
   if(plot._roofMesh){scene.remove(plot._roofMesh);}
-  const newTopH=yBase+floorH;
+  const roofMat=new THREE.MeshLambertMaterial({color:def.roofC});
+  const newTopY=yBase+floorH+.3;
   const roof=new THREE.Mesh(new THREE.ConeGeometry(def.w*.8,def.h*.6,4),roofMat);
-  roof.position.set(plot.cx,newTopH+def.h*.3,plot.cz);roof.rotation.y=Math.PI/4;roof.castShadow=true;
+  roof.position.set(plot.cx,newTopY+def.h*.3,plot.cz);roof.rotation.y=Math.PI/4;roof.castShadow=true;
   scene.add(roof);plot._roofMesh=roof;
 
-  // Light for new floor
-  const fl=new THREE.PointLight(0xfff0cc,.5,def.w*1.5);
-  fl.position.set(plot.cx,yBase+floorH-.8,plot.cz);scene.add(fl);
+  // Interior light for new floor
+  const fl=new THREE.PointLight(0xfff0cc,.55,def.w*1.6);
+  fl.position.set(plot.cx,newTopY-.8,plot.cz);scene.add(fl);
 
-  sysMsg(`🏗️ Floor ${floorNum+1} added to your house!`);
+  sysMsg(`🏗️ Floor ${floorNum+1} added to your house! Ladder added outside.`);
   closeUpgradePanel();saveGame();
 }
 
@@ -1257,6 +1275,15 @@ function buildOn(plot,type){
   if(plot.occupied){showNotif('Plot already occupied!');return;}
   player.coins-=def.cost;updateWallet();
   plot.occupied=true;plot.owner=player.name;plot.def=def;plot.type=type;
+
+  // Show "building..." feedback immediately
+  showNotif('🏗️ Building '+def.name+'...');
+
+  // Defer the heavy mesh creation to avoid freezing the frame
+  setTimeout(()=>_buildOnCore(plot,type,def),20);
+}
+
+function _buildOnCore(plot,type,def){
 
   const hw=def.w/2,hd=def.d/2;
   const wMat=new THREE.MeshLambertMaterial({color:def.color});
@@ -1475,6 +1502,11 @@ function buildOn(plot,type){
   if(type==='zoo') buildZooInterior(plot);
   if(type==='hospital') buildHospitalInterior(plot);
   if(type==='police') buildPoliceInterior(plot);
+  if(type==='fire_station') buildFireStationInterior(plot);
+  // Spawn ambulance outside hospital
+  if(type==='hospital'){
+    setTimeout(()=>spawnAmbulance(plot.cx+4, plot.cz+plot.def.d/2+8),200);
+  }
   if(type==='bank') buildBankInterior(plot);
   if(type==='cinema') buildCinemaInterior(plot);
   if(type==='library') buildLibraryInterior(plot);
@@ -1849,30 +1881,29 @@ function updateZooAnimals(dt){
     a.t+=dt;
     const g=a.mesh;
     if(!g)return;
+    // Always keep animals on the ground unless animating upward
     switch(a.animType){
       case 'pace':
-        // Lion paces back and forth
         g.position.x=a.ox+Math.sin(a.t*0.6)*1.5;
+        g.position.y=a.groundY||0;
         g.rotation.y=Math.sin(a.t*0.6)>0?0:Math.PI;
         break;
       case 'sway':
-        // Elephant sways head/body
+        g.position.y=a.groundY||0;
         g.rotation.z=Math.sin(a.t*0.4)*0.06;
         g.children.forEach((c,i)=>{if(i===1)c.rotation.z=Math.sin(a.t*0.8)*0.15;});
         break;
       case 'bob':
-        // Giraffe bobs its long neck
-        g.position.y=Math.abs(Math.sin(a.t*0.5))*0.15;
+        g.position.y=(a.groundY||0)+Math.abs(Math.sin(a.t*0.5))*0.15;
         break;
       case 'trot':
-        // Zebra trots side to side
         g.position.z=a.oz+Math.sin(a.t*0.8)*1.2;
+        g.position.y=a.groundY||0;
         g.rotation.y=Math.sin(a.t*0.8)>0?-Math.PI/2:Math.PI/2;
         break;
       case 'waddle':
-        // Penguin waddling
         g.rotation.z=Math.sin(a.t*2)*0.2;
-        g.position.y=Math.abs(Math.sin(a.t*4))*0.06;
+        g.position.y=(a.groundY||0)+Math.abs(Math.sin(a.t*4))*0.06;
         break;
     }
   });
@@ -2218,7 +2249,399 @@ function buildPoliceInterior(plot){
   policeLight.position.set(plot.cx,4.5,plot.cz);scene.add(policeLight);
 }
 
-function buildBankInterior(plot){
+function buildPoliceInterior(plot){
+  const blueM=new THREE.MeshLambertMaterial({color:0x2233aa});
+  const greyM=new THREE.MeshLambertMaterial({color:0x888899});
+  // Front desk
+  const desk=new THREE.Mesh(new THREE.BoxGeometry(6,1,1.5),new THREE.MeshLambertMaterial({color:0x445588}));
+  desk.position.set(plot.cx,0.5,plot.cz-2);scene.add(desk);
+  // Jail cells (back)
+  for(let c=0;c<2;c++){
+    const cellWall=new THREE.Mesh(new THREE.BoxGeometry(3,3.5,.1),greyM);
+    cellWall.position.set(plot.cx-3+c*6,1.75,plot.cz+4);scene.add(cellWall);
+    // Cell bars
+    for(let b=0;b<5;b++){
+      const bar=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,3.5,6),new THREE.MeshLambertMaterial({color:0x444444}));
+      bar.position.set(plot.cx-4.5+c*6+b*.6,1.75,plot.cz+5);scene.add(bar);
+    }
+  }
+  // Police badge on wall
+  const badge=new THREE.Mesh(new THREE.CylinderGeometry(.8,.8,.1,8),new THREE.MeshLambertMaterial({color:0xddaa00}));
+  badge.rotation.x=Math.PI/2;badge.position.set(plot.cx,2.5,plot.cz-plot.def.d/2+.2);scene.add(badge);
+  const star=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,.12,5),new THREE.MeshLambertMaterial({color:0xffcc00}));
+  star.rotation.x=Math.PI/2;star.position.set(plot.cx,2.5,plot.cz-plot.def.d/2+.28);scene.add(star);
+  const policeLight=new THREE.PointLight(0x3344ff,.8,16);
+  policeLight.position.set(plot.cx,4.5,plot.cz);scene.add(policeLight);
+}
+
+// ── FIRE STATION ─────────────────────────────────────────────
+const fireTrucks=[];    // {mesh, plot, deployed, target, vel}
+const ambulances=[];    // {mesh, state:'idle'|'responding'|'returning', target, vel}
+let crashSites=[];      // {pos, timer}
+
+function buildFireStationInterior(plot){
+  const redM=new THREE.MeshLambertMaterial({color:0xcc2200});
+  const greyM=new THREE.MeshLambertMaterial({color:0x888888});
+  const yellowM=new THREE.MeshLambertMaterial({color:0xffcc00});
+  // Garage bay doors (2 large openings visually)
+  for(let b=0;b<2;b++){
+    const bayDoor=new THREE.Mesh(new THREE.BoxGeometry(4.5,4.5,.18),new THREE.MeshLambertMaterial({color:0xcc4400}));
+    bayDoor.position.set(plot.cx-3+b*6,2.75,plot.cz+plot.def.d/2-.1);scene.add(bayDoor);
+    // Door panels
+    for(let p=0;p<4;p++){
+      const panel=new THREE.Mesh(new THREE.BoxGeometry(4.2,.9,.2),new THREE.MeshLambertMaterial({color:0xbb3300}));
+      panel.position.set(plot.cx-3+b*6,.5+p*1.1,plot.cz+plot.def.d/2+.02);scene.add(panel);
+    }
+  }
+  // Fire pole
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,8,8),new THREE.MeshLambertMaterial({color:0xdddddd}));
+  pole.position.set(plot.cx+5,4,plot.cz-2);scene.add(pole);
+  // Hose reel
+  const hoseReel=new THREE.Mesh(new THREE.TorusGeometry(.6,.18,8,16),redM);
+  hoseReel.rotation.x=Math.PI/2;hoseReel.position.set(plot.cx-5,1.2,plot.cz-3);scene.add(hoseReel);
+  // Equipment board on wall
+  const board=new THREE.Mesh(new THREE.BoxGeometry(5,3,.12),new THREE.MeshLambertMaterial({color:0x882200}));
+  board.position.set(plot.cx,3,plot.cz-plot.def.d/2+.1);scene.add(board);
+  // Fire axes on board
+  for(let a=0;a<3;a++){
+    const handle=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,1.5,6),new THREE.MeshLambertMaterial({color:0x6a3a10}));
+    handle.position.set(plot.cx-2+a*2,3,plot.cz-plot.def.d/2+.2);scene.add(handle);
+    const axeHead=new THREE.Mesh(new THREE.BoxGeometry(.6,.5,.12),redM);
+    axeHead.position.set(plot.cx-2+a*2,3.8,plot.cz-plot.def.d/2+.2);scene.add(axeHead);
+  }
+  // Dispatch desk
+  const desk=new THREE.Mesh(new THREE.BoxGeometry(4,.9,1.2),new THREE.MeshLambertMaterial({color:0x554422}));
+  desk.position.set(plot.cx,0.45,plot.cz-4);scene.add(desk);
+  // Red emergency light
+  const eLight=new THREE.PointLight(0xff2200,.7,20);
+  eLight.position.set(plot.cx,5,plot.cz);scene.add(eLight);
+  // Spawn firetruck outside station
+  spawnFireTruck(plot);
+}
+
+function buildFireTruckMesh(cx,cz){
+  const g=new THREE.Group();
+  const redM=new THREE.MeshLambertMaterial({color:0xdd2200});
+  const darkM=new THREE.MeshLambertMaterial({color:0x222222});
+  const yellowM=new THREE.MeshLambertMaterial({color:0xffdd00});
+  const chromeMat=new THREE.MeshLambertMaterial({color:0xdddddd});
+  const glassMat=new THREE.MeshLambertMaterial({color:0x88bbdd,transparent:true,opacity:.75});
+  // Main body
+  const body=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.2,9),redM);body.position.y=1.9;body.castShadow=true;g.add(body);
+  // Cab
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(3,2,3.5),redM);cab.position.set(0,3,.5);g.add(cab);
+  // Windshield
+  const ws=new THREE.Mesh(new THREE.BoxGeometry(2.6,1.6,.1),glassMat);ws.position.set(0,3.2,2.3);g.add(ws);
+  // Ladder on top (signature firetruck feature)
+  const ladderBase=new THREE.Mesh(new THREE.BoxGeometry(2.4,.35,8.2),new THREE.MeshLambertMaterial({color:0xcccccc}));
+  ladderBase.position.set(0,3.2,-1);g.add(ladderBase);
+  for(let r=0;r<12;r++){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,2.2,6),chromeMat);
+    rung.rotation.z=Math.PI/2;rung.position.set(0,3.55,-3.8+r*.65);g.add(rung);
+  }
+  // Side rails of ladder
+  [-1,1].forEach(s=>{
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(.1,.1,8.2),chromeMat);
+    rail.position.set(s*1.1,3.55,-1);g.add(rail);
+  });
+  // Emergency lights bar on roof
+  const lightBar=new THREE.Mesh(new THREE.BoxGeometry(2.8,.3,1),darkM);
+  lightBar.position.set(0,4.15,1.5);g.add(lightBar);
+  [-1,0,1].forEach(s=>{
+    const lt=new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.25,8),new THREE.MeshLambertMaterial({color:0xff2200,emissive:0xff0000,emissiveIntensity:.9}));
+    lt.position.set(s*.8,4.45,1.5);g.add(lt);
+  });
+  // Hose compartments on sides
+  [-1,1].forEach(s=>{
+    const comp=new THREE.Mesh(new THREE.BoxGeometry(.18,1.2,3.5),new THREE.MeshLambertMaterial({color:0xbb1800}));
+    comp.position.set(s*1.65,1.8,-1.5);g.add(comp);
+    const compDoor=new THREE.Mesh(new THREE.BoxGeometry(.22,1.1,1.6),chromeMat);
+    compDoor.position.set(s*1.75,1.8,-1.5);g.add(compDoor);
+  });
+  // Front bumper + grill
+  const bumper=new THREE.Mesh(new THREE.BoxGeometry(3.4,.55,3.6*.18),chromeMat);
+  bumper.position.set(0,1.1,2.3);g.add(bumper);
+  const grill=new THREE.Mesh(new THREE.BoxGeometry(2.2,.8,.12),darkM);grill.position.set(0,1.8,2.35);g.add(grill);
+  // Headlights
+  [-1,1].forEach(s=>{
+    const hl=new THREE.Mesh(new THREE.BoxGeometry(.55,.38,.12),new THREE.MeshLambertMaterial({color:0xffffcc,emissive:0xffff88,emissiveIntensity:.7}));
+    hl.position.set(s*1.1,1.55,2.38);g.add(hl);
+  });
+  // Wheels (6 total — firetruck is bigger)
+  [2,1.5,1.5,1.5,1.5,2].forEach((wr,i)=>{
+    const side=i%2===0?1:-1;
+    const zOff=[-2.8,-2.8,0,0,2.8,2.8][i];
+    const tire=new THREE.Mesh(new THREE.CylinderGeometry(wr*.55,wr*.55,.45,16),darkM);
+    tire.rotation.z=Math.PI/2;tire.position.set(side*1.85,.65,zOff);g.add(tire);
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(wr*.32,wr*.32,.48,8),chromeMat);
+    rim.rotation.z=Math.PI/2;rim.position.set(side*1.85,.65,zOff);g.add(rim);
+  });
+  g.position.set(cx,0,cz);g.castShadow=true;scene.add(g);
+  return g;
+}
+
+function buildAmbulanceMesh(cx,cz){
+  const g=new THREE.Group();
+  const whiteM=new THREE.MeshLambertMaterial({color:0xfafafa});
+  const darkM=new THREE.MeshLambertMaterial({color:0x222222});
+  const glassMat=new THREE.MeshLambertMaterial({color:0x88bbdd,transparent:true,opacity:.75});
+  const chromeMat=new THREE.MeshLambertMaterial({color:0xdddddd});
+  const redStripe=new THREE.MeshLambertMaterial({color:0xdd2200});
+  // Van body
+  const body=new THREE.Mesh(new THREE.BoxGeometry(2.6,2.4,5.5),whiteM);body.position.y=1.7;body.castShadow=true;g.add(body);
+  // Red cross stripe
+  const stripeH=new THREE.Mesh(new THREE.BoxGeometry(2.62,.45,5.52),redStripe);stripeH.position.set(0,2.2,0);g.add(stripeH);
+  // Windshield
+  const ws=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.4,.1),glassMat);ws.position.set(0,2.1,2.8);g.add(ws);
+  // Red cross on side
+  [-1,1].forEach(s=>{
+    const ch=new THREE.Mesh(new THREE.BoxGeometry(.1,.8,1.6),redStripe);ch.position.set(s*1.32,2.4,-0.5);g.add(ch);
+    const cv=new THREE.Mesh(new THREE.BoxGeometry(.1,1.6,.8),redStripe);cv.position.set(s*1.32,2.4,-0.5);g.add(cv);
+  });
+  // Emergency light bar
+  const lBar=new THREE.Mesh(new THREE.BoxGeometry(2.2,.28,.8),darkM);lBar.position.set(0,3,.5);g.add(lBar);
+  [-1,1].forEach(s=>{
+    const lt=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,.22,8),new THREE.MeshLambertMaterial({color:0xff2200,emissive:0xff0000,emissiveIntensity:.9}));
+    lt.position.set(s*.7,3.22,.5);g.add(lt);
+    const lt2=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,.22,8),new THREE.MeshLambertMaterial({color:0x0055ff,emissive:0x0033ff,emissiveIntensity:.8}));
+    lt2.position.set(s*.7,3.22,1.1);g.add(lt2);
+  });
+  // Rear doors
+  const rDoor=new THREE.Mesh(new THREE.BoxGeometry(2.5,2.2,.12),new THREE.MeshLambertMaterial({color:0xeeeeee}));
+  rDoor.position.set(0,1.7,-2.82);g.add(rDoor);
+  // Wheels
+  [[1.42,.6,1.8],[-1.42,.6,1.8],[1.42,.6,-1.8],[-1.42,.6,-1.8]].forEach(([wx,wy,wz])=>{
+    const tire=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.3,14),darkM);
+    tire.rotation.z=Math.PI/2;tire.position.set(wx,wy,wz);g.add(tire);
+    const rim=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.32,8),chromeMat);
+    rim.rotation.z=Math.PI/2;rim.position.set(wx,wy,wz);g.add(rim);
+  });
+  g.position.set(cx,0,cz);g.castShadow=true;scene.add(g);
+  return g;
+}
+
+// Spawn firetruck parked outside fire station
+function spawnFireTruck(plot){
+  const mesh=buildFireTruckMesh(plot.cx+2,plot.cz+plot.def.d/2+8);
+  fireTrucks.push({mesh,plot,deployed:false,target:null,vel:new THREE.Vector3(),yaw:0});
+}
+
+// Spawn ambulance (called when hospital is built, or on first load)
+function spawnAmbulance(cx,cz){
+  const mesh=buildAmbulanceMesh(cx,cz);
+  ambulances.push({mesh,state:'idle',target:null,vel:new THREE.Vector3(),yaw:0,homeCx:cx,homeCz:cz});
+}
+
+// Car crash detection — if two cars collide at speed, create a crash site
+function checkCarCrashes(){
+  // Check player car vs CUP traffic cars
+  if(!drivingCar)return;
+  const pc=drivingCar;
+  if(pc.vel.length()<3)return; // only at speed
+  cupCars.forEach(cup=>{
+    const dist=pc.mesh.position.distanceTo(cup.mesh.position);
+    if(dist<4&&!pc._justCrashed){
+      pc._justCrashed=true;
+      setTimeout(()=>{pc._justCrashed=false;},8000);
+      const crashPos=pc.mesh.position.clone();
+      crashSites.push({pos:crashPos,timer:60});
+      showNotif('💥 CRASH! Ambulance dispatched!');
+      sysMsg('🚑 Ambulance responding to crash...');
+      // Dispatch nearest ambulance
+      if(ambulances.length>0){
+        const amb=ambulances[0];
+        if(amb.state==='idle'){
+          amb.state='responding';
+          amb.target=crashPos.clone();
+        }
+      }
+      // Slow player car
+      pc.vel.multiplyScalar(0.1);
+    }
+  });
+}
+
+function updateEmergencyVehicles(dt){
+  // Firetruck — patrol near fire station
+  fireTrucks.forEach(ft=>{
+    if(!ft.deployed){
+      // Slowly idle around fire station
+      ft.idleT=(ft.idleT||0)+dt;
+      ft.mesh.position.x=ft.plot.cx+2+Math.sin(ft.idleT*.3)*3;
+      ft.mesh.rotation.y=ft.idleT*.3;
+    }
+  });
+
+  // Ambulance
+  ambulances.forEach(amb=>{
+    if(amb.state==='responding'&&amb.target){
+      const dir=amb.target.clone().sub(amb.mesh.position);
+      const dist=dir.length();
+      if(dist<4){
+        amb.state='returning';
+        amb.target=new THREE.Vector3(amb.homeCx,0,amb.homeCz);
+        sysMsg('🚑 Ambulance at crash scene — patient stabilized!');
+      } else {
+        dir.normalize();
+        amb.vel.lerp(dir.multiplyScalar(14),0.08);
+        amb.mesh.position.add(amb.vel.clone().multiplyScalar(dt));
+        amb.mesh.rotation.y=Math.atan2(amb.vel.x,amb.vel.z);
+        // Flash lights
+        amb._flashT=(amb._flashT||0)+dt;
+        if(amb._flashT>0.25){amb._flashT=0;/* lights toggle handled by emissive */}
+      }
+    } else if(amb.state==='returning'&&amb.target){
+      const dir=amb.target.clone().sub(amb.mesh.position);
+      const dist=dir.length();
+      if(dist<5){amb.state='idle';amb.vel.set(0,0,0);}
+      else{
+        dir.normalize();
+        amb.vel.lerp(dir.multiplyScalar(10),0.08);
+        amb.mesh.position.add(amb.vel.clone().multiplyScalar(dt));
+        amb.mesh.rotation.y=Math.atan2(amb.vel.x,amb.vel.z);
+      }
+    }
+  });
+
+  // Decay crash sites
+  crashSites=crashSites.filter(c=>{c.timer-=dt;return c.timer>0;});
+}
+
+// Spawn ambulance when hospital is built
+const _origBuildOn2Ref=buildOn;
+
+// ── NPC AI JOBS & BUYING ──────────────────────────────────────
+const NPC_JOB_DEFS={
+  shopkeeper:  {label:'Shopkeeper',   icon:'🛒', stations:['store','clothing_store'],pay:8},
+  chef:        {label:'Chef',         icon:'👨‍🍳', stations:['restaurant'],pay:12},
+  doctor:      {label:'Doctor',       icon:'🩺', stations:['hospital'],pay:18},
+  police_off:  {label:'Police',       icon:'👮', stations:['police'],pay:13},
+  firefighter: {label:'Firefighter',  icon:'🧑‍🚒', stations:['fire_station'],pay:15},
+  banker:      {label:'Banker',       icon:'💰', stations:['bank'],pay:20},
+  teacher:     {label:'Teacher',      icon:'🏫', stations:['school'],pay:11},
+  farmer:      {label:'Farmer',       icon:'🌾', stations:['farm'],pay:9},
+  zookeeper:   {label:'Zoo Keeper',   icon:'🦁', stations:['zoo'],pay:11},
+};
+const NPC_BEHAVIORS=['shop','walk_to_building','work','idle'];
+const hiredNPCs=[];  // NPCs hired by player: {npc, job}
+
+// Assign jobs and behaviors to newly spawned NPCs
+function initNPCBehaviors(){
+  const jobKeys=Object.keys(NPC_JOB_DEFS);
+  npcs.forEach((npc,i)=>{
+    npc.job=jobKeys[i%jobKeys.length];
+    npc.state='walk';
+    npc.stateTimer=3+Math.random()*8;
+    npc.coins=Math.floor(Math.random()*200)+50;
+    npc.name='Citizen '+(i+1);
+    npc.hired=false;
+    // Give uniform color hint by job
+    const jd=NPC_JOB_DEFS[npc.job];
+    if(jd&&npc.mesh.children[0]){
+      const jobColors={shopkeeper:0x3366cc,chef:0xffffff,doctor:0xfafafa,police_off:0x334488,firefighter:0xdd2200,banker:0xd4c080,teacher:0xf0e040,farmer:0xd4a040,zookeeper:0x509040};
+      if(jobColors[npc.job]) npc.mesh.children[0].material=new THREE.MeshLambertMaterial({color:jobColors[npc.job]});
+    }
+  });
+}
+setTimeout(initNPCBehaviors,2000);
+
+// NPC behavior update — work, shop, wander
+function updateNPCAI(dt){
+  const workBuildings=placedBuildings.filter(b=>b.type);
+  const stores=placedBuildings.filter(b=>b.type==='store'||b.type==='restaurant'||b.type==='clothing_store');
+
+  npcs.forEach(npc=>{
+    if(!npc.state)return;
+    npc.stateTimer-=dt;
+
+    switch(npc.state){
+      case 'walk':
+        // Normal walk behavior (already handled in updateNPCs)
+        if(npc.stateTimer<0){
+          // Randomly decide next state
+          const r=Math.random();
+          if(r<0.35&&stores.length>0){npc.state='shopping';npc.stateTimer=8+Math.random()*10;npc.shopTarget=stores[Math.floor(Math.random()*stores.length)];}
+          else if(r<0.6&&workBuildings.length>0){npc.state='working';npc.stateTimer=15+Math.random()*20;const jdStations=NPC_JOB_DEFS[npc.job]?.stations||[];const wb=workBuildings.filter(b=>jdStations.includes(b.type));npc.workTarget=wb.length>0?wb[0]:null;}
+          else{npc.stateTimer=5+Math.random()*10;}
+        }
+        break;
+      case 'shopping':
+        if(npc.shopTarget){
+          // Walk toward store
+          const dx=npc.shopTarget.cx-npc.mesh.position.x;
+          const dz=npc.shopTarget.cz-npc.mesh.position.z;
+          const dist=Math.sqrt(dx*dx+dz*dz);
+          if(dist<5){
+            // "Buy" something
+            npc.coins=Math.max(0,npc.coins-Math.floor(Math.random()*20+5));
+            if(Math.random()<0.15) showBubble(npc,['I found a deal!','Shopping time!','Nice stuff here!','Love this store!'][Math.floor(Math.random()*4)]);
+            npc.state='walk';npc.stateTimer=6+Math.random()*8;
+          } else {
+            const spd=npc.spd*1.3;
+            npc.mesh.position.x+=dx/dist*spd*dt;
+            npc.mesh.position.z+=dz/dist*spd*dt;
+            npc.mesh.rotation.y=Math.atan2(dx,dz);
+          }
+        } else {npc.state='walk';npc.stateTimer=5;}
+        break;
+      case 'working':
+        if(npc.workTarget){
+          const dx=npc.workTarget.cx-npc.mesh.position.x;
+          const dz=npc.workTarget.cz-npc.mesh.position.z;
+          const dist=Math.sqrt(dx*dx+dz*dz);
+          if(dist<6){
+            // At workplace — stand still and earn
+            npc.coins=(npc.coins||0)+(NPC_JOB_DEFS[npc.job]?.pay||8)*dt/60;
+            if(Math.random()<0.008){
+              const jd=NPC_JOB_DEFS[npc.job];
+              const phrases={shopkeeper:['Welcome!','Can I help?'],chef:['Order up!','Fresh today!'],doctor:['Next patient!','Stay healthy!'],police_off:['All clear!','Move along.'],firefighter:['Ready for duty!','Stay safe!'],banker:['Great rates!','Invest wisely!'],teacher:['Class in session!','Study hard!'],farmer:['Good harvest!','Rain please!'],zookeeper:['Feed time!','Animals happy!']};
+              const ph=(phrases[npc.job]||['Working hard!']);
+              showBubble(npc,ph[Math.floor(Math.random()*ph.length)]);
+            }
+          } else {
+            npc.mesh.position.x+=dx/dist*npc.spd*dt;
+            npc.mesh.position.z+=dz/dist*npc.spd*dt;
+            npc.mesh.rotation.y=Math.atan2(dx,dz);
+          }
+          if(npc.stateTimer<0){npc.state='walk';npc.stateTimer=8+Math.random()*10;}
+        } else {npc.state='walk';npc.stateTimer=5;}
+        break;
+    }
+  });
+}
+
+function showBubble(npc,text){
+  if(npc.bubble){npc.bubble.textContent=text;npc.bubbleActive=true;setTimeout(()=>{npc.bubbleActive=false;},3000);}
+}
+
+// ── HIRE NPC SYSTEM ───────────────────────────────────────────
+function openHirePanel(){
+  // Show nearby NPCs that can be hired
+  const nearby=npcs.filter(n=>!n.hired&&camera.position.distanceTo(n.mesh.position)<12);
+  if(nearby.length===0){showNotif('No NPCs nearby to hire! Walk up to one.');return;}
+  const npc=nearby[0];
+  const jd=NPC_JOB_DEFS[npc.job]||{label:'Worker',pay:10};
+  const cost=200;
+  if(player.coins<cost){showNotif(`Need ${cost} ₿5 to hire an NPC!`);return;}
+  if(confirm(`Hire ${npc.name} as ${jd.icon} ${jd.label} for ${cost} ₿5?\nThey will work automatically and you earn their wage!`)){
+    player.coins-=cost;updateWallet();
+    npc.hired=true;
+    hiredNPCs.push({npc,job:npc.job,earnTimer:0});
+    sysMsg(`✅ Hired ${npc.name} as ${jd.icon} ${jd.label}! They earn for you automatically.`);
+  }
+}
+
+// Hired NPCs pay player their wage
+function updateHiredNPCs(dt){
+  hiredNPCs.forEach(h=>{
+    h.earnTimer+=dt;
+    if(h.earnTimer>=60){
+      h.earnTimer=0;
+      const jd=NPC_JOB_DEFS[h.job]||{pay:8};
+      earnCoins(jd.pay,`${h.npc.name} wages`);
+    }
+  });
+}
   const goldM=new THREE.MeshLambertMaterial({color:0xc8a840});
   const darkM=new THREE.MeshLambertMaterial({color:0x554422});
   // Teller windows (3)
@@ -2523,7 +2946,11 @@ function buildZooInterior(plot){
     signBoard.position.set(ax,1.6,az+enc.r+.6);scene.add(signBoard);
     // Build the animal and register for animation
     const mesh=enc.buildFn(ax,az);
-    zooAnimals.push({mesh,animType:mesh.userData.animType,t:mesh.userData.t||0,ox:ax,oz:az});
+    // Calculate ground offset: half the bounding box height
+    const bbox=new THREE.Box3().setFromObject(mesh);
+    const groundY=-(bbox.min.y); // lift so bottom of animal = 0
+    mesh.position.y=groundY;
+    zooAnimals.push({mesh,animType:mesh.userData.animType,t:mesh.userData.t||0,ox:ax,oz:az,groundY});
   });
 
   // Pathway between enclosures
@@ -2855,20 +3282,69 @@ function buildBathtub(px,pz){
   g.add(body);g.position.set(px,.42,pz);return g;
 }
 
-function placeFurniture(fd){
-  if(!insideBuilding||insideBuilding.owner!==player.name)return;
-  if(player.coins<fd.cost){showNotif('Not enough B5 Coins!');return;}
+// ── FREE FURNITURE PLACEMENT ──────────────────────────────────
+let furnPlaceMode=null;   // {fd, ghost}
+let furnGhost=null;
+
+function startFurnPlace(fd){
+  if(!insideBuilding||insideBuilding.owner!==player.name){showNotif('Go inside your house first!');return;}
+  if(player.coins<fd.cost){showNotif(`Need ${fd.cost} ₿5 for ${fd.name}!`);return;}
+  closeFurnPanel();
+  // Build a semi-transparent ghost
+  furnGhost=fd.buildFn(0,0);
+  furnGhost.traverse(c=>{if(c.isMesh){c.material=c.material.clone();c.material.transparent=true;c.material.opacity=0.45;}});
+  scene.add(furnGhost);
+  furnPlaceMode=fd;
+  showNotif(`📦 Move to position, click to place ${fd.icon} ${fd.name} · ESC to cancel`);
+  requestLock();
+}
+
+// Called every frame from game loop to update ghost position
+function updateFurnGhost(){
+  if(!furnGhost||!furnPlaceMode)return;
+  const plot=insideBuilding;if(!plot)return;
+  // Raycast from camera onto ground plane
+  const dir=new THREE.Vector3();camera.getWorldDirection(dir);
+  if(dir.y>=-0.05)return; // looking up — skip
+  const t=-camera.position.y/dir.y;
+  const gx=camera.position.x+dir.x*t;
+  const gz=camera.position.z+dir.z*t;
+  // Clamp inside house footprint
+  const hw=plot.def.w/2-1.5, hd=plot.def.d/2-1.5;
+  const fx=Math.max(plot.cx-hw,Math.min(plot.cx+hw,gx));
+  const fz=Math.max(plot.cz-hd,Math.min(plot.cz+hd,gz));
+  furnGhost.position.set(fx,0,fz);
+  furnGhost.rotation.y=(furnGhost.rotation.y||0);
+}
+
+function confirmFurnPlace(){
+  if(!furnGhost||!furnPlaceMode||!insideBuilding)return;
+  const fd=furnPlaceMode;
   player.coins-=fd.cost;updateWallet();
-  const plot=insideBuilding;
-  const n=plot.furnitureMeshes.length;
-  const fx=plot.cx+((n%4)-1.5)*3.2;
-  const fz=plot.cz+Math.floor(n/4)*3.5-3;
+  const fx=furnGhost.position.x, fz=furnGhost.position.z;
+  scene.remove(furnGhost);furnGhost=null;furnPlaceMode=null;
   const grp=fd.buildFn(fx,fz);
   scene.add(grp);
+  const plot=insideBuilding;
   if(fd.id==='bed'){plot.hasBed=true;plot.bedPos={x:fx,z:fz};}
   plot.furnitureMeshes.push(grp);
   addChat('',`${fd.icon} ${fd.name} placed!`,'trade');
-  closeFurnPanel();saveGame();
+  saveGame();
+  showNotif(`✅ ${fd.name} placed! Place another or press I for menu.`);
+}
+
+function cancelFurnPlace(){
+  if(furnGhost){scene.remove(furnGhost);furnGhost=null;}
+  furnPlaceMode=null;
+}
+
+// Rotate furniture ghost with R while placing
+function rotateFurnGhost(){
+  if(furnGhost)furnGhost.rotation.y+=Math.PI/2;
+}
+
+function placeFurniture(fd){
+  startFurnPlace(fd);
 }
 
 function openFurnPanel(){
@@ -2882,7 +3358,7 @@ function openFurnPanel(){
   });
   document.getElementById('furn-panel').classList.add('open');releaseLock();
 }
-function closeFurnPanel(){document.getElementById('furn-panel').classList.remove('open');requestLock();}
+function closeFurnPanel(){document.getElementById('furn-panel').classList.remove('open');if(!furnPlaceMode)requestLock();}
 
 // ── SLEEP ─────────────────────────────────────────────────────
 let sleeping=false,sleepTimer=0;
@@ -3457,7 +3933,7 @@ let fuelDrainTimer=0;
 function updateDriving(dt){
   if(!drivingCar)return;
   const car=drivingCar;
-  const onRoad=isOnRoad(car.mesh.position.x,car.mesh.position.z);
+  const onRoad=isOnRoad(car.mesh.position.x,car.mesh.position.z); // still used for speeding tickets on roads
   const boost=keys['ShiftLeft']||keys['ShiftRight'];
   const moving=keys['KeyW']||keys['KeyS']||keys['ArrowUp']||keys['ArrowDown'];
 
@@ -3473,37 +3949,42 @@ function updateDriving(dt){
     }
   }
 
-  const maxSpd=boost?(onRoad?car.def.spd*1.5:0):(onRoad?car.def.spd:0);
-  // If not on road, gradually stop and nudge back
-  if(!onRoad){
-    car.vel.multiplyScalar(.7);
-    if(car.vel.length()<0.05)car.vel.set(0,0,0);
-    // Nudge back toward nearest road
-    let nearestDist=Infinity,nudgeX=0,nudgeZ=0;
-    for(let i=-6;i<=6;i++){
-      const dx=i*ROAD_SPACING-car.mesh.position.x;
-      const dz=i*ROAD_SPACING-car.mesh.position.z;
-      if(Math.abs(dx)<nearestDist){nearestDist=Math.abs(dx);nudgeX=Math.sign(dx)*0.5;nudgeZ=0;}
-      if(Math.abs(dz)<nearestDist){nearestDist=Math.abs(dz);nudgeX=0;nudgeZ=Math.sign(dz)*0.5;}
-    }
-    car.mesh.position.x+=nudgeX*dt*2;
-    car.mesh.position.z+=nudgeZ*dt*2;
-    if(!car._offRoadWarn||Date.now()-car._offRoadWarn>3000){car._offRoadWarn=Date.now();showNotif('🛣️ Stay on the road!');}
-  }
-  if(keys['KeyA']||keys['ArrowLeft'])car.yaw+=1.6*dt;
-  if(keys['KeyD']||keys['ArrowRight'])car.yaw-=1.6*dt;
+  const maxSpd=boost?car.def.spd*1.5:car.def.spd;
+  if(keys['KeyA']||keys['ArrowLeft'])car.yaw+=1.6*dt*(car.vel.length()>0.1?1:0.3);
+  if(keys['KeyD']||keys['ArrowRight'])car.yaw-=1.6*dt*(car.vel.length()>0.1?1:0.3);
   let acc=0;
   if(keys['KeyW']||keys['ArrowUp'])acc=maxSpd*dt;
-  if(keys['KeyS']||keys['ArrowDown'])acc=-maxSpd*dt*.5;
-  car.vel.x+=-Math.sin(car.yaw)*acc;
-  car.vel.z+=-Math.cos(car.yaw)*acc;
-  car.vel.multiplyScalar(onRoad?.90:.82);
+  if(keys['KeyS']||keys['ArrowDown'])acc=-maxSpd*dt*.55;
+  car.vel.x+=Math.sin(car.yaw)*acc;
+  car.vel.z+=Math.cos(car.yaw)*acc;
+  car.vel.multiplyScalar(.88);
   car.mesh.position.x+=car.vel.x;
   car.mesh.position.z+=car.vel.z;
+
+  // ── Building collision ────────────────────────────────────
+  placedBuildings.forEach(b=>{
+    if(!b.def)return;
+    const hw=b.def.w/2+1.8, hd=b.def.d/2+1.8;
+    const dx=car.mesh.position.x-b.cx;
+    const dz=car.mesh.position.z-b.cz;
+    if(Math.abs(dx)<hw&&Math.abs(dz)<hd){
+      // Push car out on the axis of least penetration
+      const overlapX=hw-Math.abs(dx);
+      const overlapZ=hd-Math.abs(dz);
+      if(overlapX<overlapZ){
+        car.mesh.position.x+=Math.sign(dx)*overlapX;
+        car.vel.x*=-0.3;
+      } else {
+        car.mesh.position.z+=Math.sign(dz)*overlapZ;
+        car.vel.z*=-0.3;
+      }
+    }
+  });
+
   car.mesh.position.x=Math.max(-980,Math.min(980,car.mesh.position.x));
   car.mesh.position.z=Math.max(-980,Math.min(980,car.mesh.position.z));
   car.mesh.rotation.y=car.yaw;
-  const behind=new THREE.Vector3(Math.sin(car.yaw)*9,3.8,Math.cos(car.yaw)*9);
+  const behind=new THREE.Vector3(-Math.sin(car.yaw)*9,3.8,-Math.cos(car.yaw)*9);
   camera.position.lerp(car.mesh.position.clone().add(behind),.12);
   camera.lookAt(car.mesh.position.clone().add(new THREE.Vector3(0,1.2,0)));
   if(player.job==='taxi')earnXP(.03);
@@ -3756,18 +4237,19 @@ function bankWithdraw(){
 
 // ── PLAYER ────────────────────────────────────────────────────
 const JOBS_DEF={
-  electrician:{name:'Electrician',icon:'⚡',pay:12,xpRate:3},
-  carpenter:  {name:'Carpenter',  icon:'🪚',pay:10,xpRate:2.5},
-  blacksmith: {name:'Blacksmith', icon:'⚒️',pay:14,xpRate:3.5},
-  taxi:       {name:'Taxi Driver',icon:'🚕',pay:8, xpRate:2},
-  roadbuilder:{name:'Road Builder',icon:'🛣️',pay:9,xpRate:2},
-  zookeeper:  {name:'Zoo Keeper', icon:'🦁',pay:11,xpRate:2.8},
-  farmer:     {name:'Farmer',     icon:'🌾',pay:9, xpRate:2.2},
-  busdriver:  {name:'Bus Driver', icon:'🚌',pay:10,xpRate:2.5},
-  doctor:     {name:'Doctor',     icon:'🩺',pay:18,xpRate:4},
-  police_off: {name:'Police Officer',icon:'👮',pay:13,xpRate:3},
-  banker:     {name:'Banker',     icon:'💰',pay:20,xpRate:4.5},
-  teacher:    {name:'Teacher',    icon:'🏫',pay:11,xpRate:3},
+  electrician: {name:'Electrician',  icon:'⚡', pay:12,xpRate:3},
+  carpenter:   {name:'Carpenter',    icon:'🪚', pay:10,xpRate:2.5},
+  blacksmith:  {name:'Blacksmith',   icon:'⚒️', pay:14,xpRate:3.5},
+  taxi:        {name:'Taxi Driver',  icon:'🚕', pay:8, xpRate:2},
+  roadbuilder: {name:'Road Builder', icon:'🛣️', pay:9, xpRate:2},
+  zookeeper:   {name:'Zoo Keeper',   icon:'🦁', pay:11,xpRate:2.8},
+  farmer:      {name:'Farmer',       icon:'🌾', pay:9, xpRate:2.2},
+  busdriver:   {name:'Bus Driver',   icon:'🚌', pay:10,xpRate:2.5},
+  doctor:      {name:'Doctor',       icon:'🩺', pay:18,xpRate:4},
+  police_off:  {name:'Police Officer',icon:'👮',pay:13,xpRate:3},
+  firefighter: {name:'Firefighter',  icon:'🧑‍🚒',pay:15,xpRate:3.5},
+  banker:      {name:'Banker',       icon:'💰', pay:20,xpRate:4.5},
+  teacher:     {name:'Teacher',      icon:'🏫', pay:11,xpRate:3},
 };
 
 const player={id:Math.random().toString(36).slice(2,8),name:'',job:null,jobLevel:1,jobXP:0,jobXPNext:100,coins:5000,yaw:0,pitch:0,velY:0,onGround:true};
@@ -4118,10 +4600,15 @@ document.addEventListener('keydown',e=>{
   if(e.code==='KeyF'&&locked){if(ridingBus)exitBus();else exitCar();e.preventDefault();}
   if(e.code==='KeyI'&&locked&&insideBuilding){openFurnPanel();e.preventDefault();}
   if(e.code==='KeyM'){toggleMusic();e.preventDefault();}
-  if(e.code==='KeyR'&&locked){waterFarmCrops();e.preventDefault();}
+  if(e.code==='KeyR'&&locked){
+    if(furnPlaceMode) rotateFurnGhost();
+    else waterFarmCrops();
+    e.preventDefault();
+  }
   if(e.code==='KeyH'&&locked){harvestCrops();e.preventDefault();}
   if(e.code==='KeyL'&&locked){toggleLeaderboard();e.preventDefault();}
   if(e.code==='KeyQ'&&locked){toggleQuestPanel();e.preventDefault();}
+  if(e.code==='KeyN'&&locked){openHirePanel();e.preventDefault();}
   if(e.code==='KeyE'&&locked){
     if(tryRefuel()){}
     else if(!enterNearbyCar()){
@@ -4130,7 +4617,7 @@ document.addEventListener('keydown',e=>{
     e.preventDefault();
   }
   if(e.code==='Space'&&locked&&insideBuilding&&insideBuilding.hasBed){trySleep();e.preventDefault();}
-  if(e.code==='Escape'){cancelPlace();closeAllMenus();closeFurnPanel();closeUpgradePanel();}
+  if(e.code==='Escape'){cancelPlace();cancelFurnPlace();closeAllMenus();closeFurnPanel();closeUpgradePanel();}
 });
 document.addEventListener('keyup',e=>keys[e.code]=false);
 
@@ -4141,7 +4628,10 @@ document.addEventListener('mousemove',e=>{
   player.pitch=Math.max(-1.4,Math.min(1.4,player.pitch));
 });
 
-canvas.addEventListener('click',()=>{if(!locked&&!menuOpen)requestLock();});
+canvas.addEventListener('click',()=>{
+  if(furnPlaceMode){confirmFurnPlace();return;}
+  if(!locked&&!menuOpen)requestLock();
+});
 function requestLock(){if(!placingType&&!menuOpen)canvas.requestPointerLock();}
 function releaseLock(){document.exitPointerLock();}
 document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===canvas;});
@@ -4253,6 +4743,11 @@ function loop(ts){
 
   updateNametags();
   updateNPCChat(dt);
+  updateNPCAI(dt);
+  updateHiredNPCs(dt);
+  updateEmergencyVehicles(dt);
+  updateFurnGhost();
+  if(_loopTick%8===0)checkCarCrashes();
   // Throttle: minimap every 3 frames, compass every 2 frames
   if(_loopTick%3===0)drawMinimap();
   if(_loopTick%2===0)updateCompass();
@@ -4504,8 +4999,12 @@ function updateQuizCountdown(dt){
 // ── START ─────────────────────────────────────────────────────
 function startGame(name,joinCode){
   player.name=name||'Traveler';
-  camera.position.set(0,2.2,0);
+  camera.position.set(28,2.2,28);  // spawn on road, away from fountain
   selfMesh=buildPlayerMesh(playerShirtColor);scene.add(selfMesh);
+
+  // Set room code for Firebase (custom or default PUBLIC)
+  window._b5Room=joinCode||('ROOM_'+(Math.random().toString(36).slice(2,6).toUpperCase()));
+  if(!joinCode) window._b5Room='PUBLIC'; // default public room if no code entered
 
   // Load save if available
   const loaded=loadGame();
@@ -4522,12 +5021,11 @@ function startGame(name,joinCode){
   if(loaded){
     sysMsg(`Welcome back, ${player.name}! Progress restored.`);
   } else {
-    sysMsg(`Welcome to Terra World v11, ${player.name}! You start with 5,000 B5 Coins.`);
-    sysMsg('🏥 Hospital · 🚔 Police · 🏦 Bank · 🎬 Cinema · 📚 Library · 💪 Gym · 🏫 School');
+    sysMsg(`Welcome to B5VILLE, ${player.name}! You start with 5,000 B5 Coins.`);
+    sysMsg('🏥 Hospital · 🚒 Fire Station · 🚔 Police · 🏦 Bank · 🎬 Cinema · 💪 Gym');
     sysMsg('🌾 Farm crops grow when watered (R) · Harvest with H · 🚌 Bus follows roads');
-    sysMsg('🔥 Campfires glow at night · 🌙 Fireflies appear after dark!');
-    sysMsg('📋 Q = Quest panel · L = Leaderboard · 🏗️ Upgrade your house in the menu!');
-    sysMsg('🚗 Speeding gets you a wanted star · 🚔 Turn yourself in at Police Station!');
+    sysMsg('📋 Q = Quests (click CLAIM to get coins!) · L = Leaderboard · E = Interact');
+    sysMsg('🚗 W=Forward S=Back A/D=Steer · Drive anywhere! · Shift=Boost');
   }
 
   // Start music
@@ -4548,7 +5046,8 @@ function startGame(name,joinCode){
 document.getElementById('btn-new').onclick=()=>{
   const n=document.getElementById('pname').value.trim();
   if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}
-  startGame(n,null);
+  const customRoom=document.getElementById('room-name-input')?document.getElementById('room-name-input').value.trim().toUpperCase():'';
+  startGame(n,customRoom||null);
 };
 document.getElementById('pname').addEventListener('keydown',e=>{if(e.code==='Enter')document.getElementById('btn-new').click();});
 document.getElementById('btn-join').onclick=()=>{
@@ -4563,12 +5062,9 @@ window.addEventListener('resize',()=>{
 });
 
 // ══════════════════════════════════════════════════════════════
-// FIREBASE MULTIPLAYER  —  terra_world_v12
-// Replace the firebaseConfig values below with your project's
-// config from https://console.firebase.google.com
+// FIREBASE MULTIPLAYER  —  B5VILLE
 // ══════════════════════════════════════════════════════════════
 (function initFirebase(){
-  // ── 1. PASTE YOUR FIREBASE CONFIG HERE ──────────────────────
   const firebaseConfig = {
     apiKey:            "AIzaSyDE-3z4ufv4UdC9hT14S7fKJ1_RKM0pRXE",
     authDomain:        "terra-7d5c4.firebaseapp.com",
@@ -4579,120 +5075,184 @@ window.addEventListener('resize',()=>{
     appId:             "1:578894194870:web:afefe6332337b18bfd1e17",
     measurementId:     "G-X6BGR9NT0V"
   };
-  // ─────────────────────────────────────────────────────────────
-  // Guard: skip if placeholders not replaced yet
-  if(firebaseConfig.apiKey==='YOUR_API_KEY'){
-    console.warn('[TerraWorld] Firebase not configured — multiplayer offline. See setup instructions.');
-    return;
-  }
 
-  // ── Dynamic SDK import (no npm needed) ──────────────────────
   const SDK='https://www.gstatic.com/firebasejs/10.12.2/';
   Promise.all([
     import(SDK+'firebase-app.js'),
     import(SDK+'firebase-database.js'),
     import(SDK+'firebase-auth.js')
-  ]).then(([{initializeApp},{getDatabase,ref,set,onValue,onDisconnect,serverTimestamp,remove,off},{getAuth,signInAnonymously}])=>{
+  ]).then(([{initializeApp},{getDatabase,ref,set,get,onValue,onDisconnect,serverTimestamp,remove,push},{getAuth,signInAnonymously}])=>{
 
     const app  = initializeApp(firebaseConfig);
     const db   = getDatabase(app);
     const auth = getAuth(app);
 
     let myUid=null;
-    let roomRef=null;
+    let currentRoom=null;
     let presenceRef=null;
-    const remotePlayers={};  // uid → THREE.Group
+    const fbPlayers={};   // uid → {mesh, nameEl, lastSeen}
+    let lastChatKey='';
+    let buildBroadcastThrottle=0;
 
-    // ── Anonymous sign-in ────────────────────────────────────
+    // ── Sign in ──────────────────────────────────────────────
     signInAnonymously(auth).then(cred=>{
       myUid=cred.user.uid;
-      console.log('[TerraWorld] Firebase UID:',myUid);
-      joinFirebaseRoom(window._twRoomCode||'PUBLIC');
-    }).catch(e=>console.warn('[TerraWorld] Firebase auth failed:',e));
+      // Wait for game to start (player.name set), then auto-join
+      const waitForGame=setInterval(()=>{
+        if(player&&player.name&&window._b5Room){
+          clearInterval(waitForGame);
+          joinRoom(window._b5Room);
+        }
+      },500);
+    }).catch(e=>console.warn('[B5VILLE] Firebase auth failed:',e));
 
-    // ── Join / create room ───────────────────────────────────
-    function joinFirebaseRoom(code){
-      roomRef=ref(db,`rooms/${code}`);
-      presenceRef=ref(db,`rooms/${code}/players/${myUid}`);
+    // ── Join a room by name ──────────────────────────────────
+    function joinRoom(code){
+      currentRoom=code.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'PUBLIC';
+      presenceRef=ref(db,`b5ville/rooms/${currentRoom}/players/${myUid}`);
 
-      // Write own presence, auto-remove on disconnect
+      // Auto-remove self on disconnect
       onDisconnect(presenceRef).remove();
 
-      // Broadcast own state every 200ms
-      setInterval(broadcastFirebase,200);
+      // Update HUD room label
+      const lbl=document.getElementById('room-code-lbl');
+      if(lbl){lbl.textContent='['+currentRoom+']';lbl.title='Room: '+currentRoom;}
+      document.getElementById('srv-lbl').innerHTML=`B5VILLE <span id="room-code-lbl" style="font-size:9px;color:#7a6030;letter-spacing:2px;margin-left:8px;cursor:pointer;" onclick="copyRoomCode()" title="Click to copy">[${currentRoom}]</span>`;
+      myRoomCode=currentRoom;
 
-      // Listen for other players
-      onValue(ref(db,`rooms/${code}/players`),snap=>{
+      // Broadcast my state every 150ms
+      setInterval(()=>broadcastSelf(),150);
+
+      // ── Listen: players ──────────────────────────────────
+      onValue(ref(db,`b5ville/rooms/${currentRoom}/players`),snap=>{
         const data=snap.val()||{};
-        Object.keys(data).forEach(uid=>{
+        const liveUids=new Set(Object.keys(data));
+
+        // Add/update remote players
+        liveUids.forEach(uid=>{
           if(uid===myUid)return;
           const pd=data[uid];
-          if(!remotePlayers[uid]){
-            // Spawn remote player mesh
-            const mesh=buildPlayerMesh(pd.color||0x44aaff);
+          if(!pd)return;
+          if(!fbPlayers[uid]){
+            const mesh=buildPlayerMesh(pd.shirtColor||0x44aaff);
             scene.add(mesh);
-            remotePlayers[uid]={mesh,label:makeRemoteLabel(pd.name||'?')};
+            const nameEl=document.createElement('div');
+            nameEl.className='nametag';nameEl.textContent=pd.name||'???';
+            document.getElementById('hud').appendChild(nameEl);
+            fbPlayers[uid]={mesh,nameEl};
+            sysMsg(`🟢 <b>${pd.name||'Player'}</b> joined the room!`);
           }
-          const rp=remotePlayers[uid];
-          if(pd.x!==undefined){rp.mesh.position.set(pd.x,pd.y,pd.z);}
-          if(pd.ry!==undefined){rp.mesh.rotation.y=pd.ry;}
-          if(rp.label)rp.label.el.textContent=pd.name||uid.slice(0,6);
-          rp.lastSeen=Date.now();
+          const fp=fbPlayers[uid];
+          if(pd.x!==undefined) fp.mesh.position.set(pd.x,pd.y,pd.z);
+          if(pd.ry!==undefined) fp.mesh.rotation.y=pd.ry;
+          fp.nameEl.textContent=pd.name||uid.slice(0,6);
+          fp.lastSeen=Date.now();
         });
-        // Remove stale players (disconnected > 5 s)
-        Object.keys(remotePlayers).forEach(uid=>{
-          if(!data[uid]){
-            scene.remove(remotePlayers[uid].mesh);
-            remotePlayers[uid].label?.el?.remove();
-            delete remotePlayers[uid];
+
+        // Remove players who left
+        Object.keys(fbPlayers).forEach(uid=>{
+          if(!liveUids.has(uid)){
+            sysMsg(`🔴 <b>${fbPlayers[uid].nameEl.textContent}</b> left.`);
+            scene.remove(fbPlayers[uid].mesh);
+            fbPlayers[uid].nameEl.remove();
+            delete fbPlayers[uid];
           }
+        });
+
+        // Update online count
+        const total=liveUids.size;
+        document.getElementById('onl-lbl').textContent=`● ${total} ONLINE`;
+
+        // Sync peers object for leaderboard compatibility
+        Object.keys(fbPlayers).forEach(uid=>{
+          if(data[uid]) peers[uid]={name:data[uid].name,coins:data[uid].coins||0,mesh:fbPlayers[uid].mesh};
         });
       });
 
-      // Chat listener
-      onValue(ref(db,`rooms/${code}/chat`),snap=>{
+      // ── Listen: chat ─────────────────────────────────────
+      onValue(ref(db,`b5ville/rooms/${currentRoom}/chat`),snap=>{
         const msgs=snap.val();if(!msgs)return;
         const keys=Object.keys(msgs).sort();
-        const latest=msgs[keys[keys.length-1]];
-        if(latest&&latest.uid!==myUid&&latest.text){
-          sysMsg(`💬 <b>${latest.name||'?'}</b>: ${latest.text}`);
+        const latest=keys[keys.length-1];
+        if(latest&&latest!==lastChatKey){
+          lastChatKey=latest;
+          const m=msgs[latest];
+          if(m&&m.uid!==myUid) sysMsg(`💬 <b>${m.name||'?'}</b>: ${m.text}`);
         }
       });
 
+      // ── Listen: buildings (sync builds) ──────────────────
+      onValue(ref(db,`b5ville/rooms/${currentRoom}/buildings`),snap=>{
+        const bdata=snap.val();if(!bdata)return;
+        Object.values(bdata).forEach(b=>{
+          // Only rebuild buildings we don't already have locally
+          const exists=placedBuildings.find(pb=>Math.abs(pb.cx-b.cx)<1&&Math.abs(pb.cz-b.cz)<1);
+          if(!exists&&b.type&&b.cx!==undefined){
+            // Find an unoccupied plot near those coords and build
+            const plot=PLOTS.find(p=>Math.abs(p.cx-b.cx)<2&&Math.abs(p.cz-b.cz)<2&&!p.occupied);
+            if(plot) buildOn(plot,b.type,b.owner||'Network');
+          }
+        });
+      });
+
+      // ── Expose send-chat globally ─────────────────────────
       window._fbSendChat=function(text){
-        if(!roomRef||!myUid)return;
-        set(ref(db,`rooms/${code}/chat/${Date.now()}_${myUid.slice(0,4)}`),{
+        if(!currentRoom||!myUid)return;
+        push(ref(db,`b5ville/rooms/${currentRoom}/chat`),{
           uid:myUid,name:player.name,text,ts:serverTimestamp()
         });
       };
 
-      window._fbRoom=code;
-      sysMsg(`🌐 Firebase room <b>${code}</b> joined — multiplayer active!`);
+      // ── Expose push-build globally ────────────────────────
+      window._fbPushBuild=function(plot,type){
+        if(!currentRoom||!myUid)return;
+        const key=`${Math.round(plot.cx)}_${Math.round(plot.cz)}`;
+        set(ref(db,`b5ville/rooms/${currentRoom}/buildings/${key}`),{
+          cx:plot.cx,cz:plot.cz,type,owner:player.name,ts:serverTimestamp()
+        });
+      };
+
+      sysMsg(`🌐 Room <b style="color:var(--gold)">${currentRoom}</b> joined — share this code with friends!`);
     }
 
-    function broadcastFirebase(){
-      if(!presenceRef||!myUid)return;
+    // ── Broadcast self position + info ───────────────────────
+    function broadcastSelf(){
+      if(!presenceRef||!myUid||!selfMesh)return;
       set(presenceRef,{
         name:player.name,
-        color:player.color||0xffaa55,
-        x:+playerMesh.position.x.toFixed(2),
-        y:+playerMesh.position.y.toFixed(2),
-        z:+playerMesh.position.z.toFixed(2),
-        ry:+playerMesh.rotation.y.toFixed(3),
-        coins:player.coins,
-        job:player.job,
-        ts:serverTimestamp()
+        shirtColor:playerShirtColor||0xcc3344,
+        x:+selfMesh.position.x.toFixed(2),
+        y:+selfMesh.position.y.toFixed(2),
+        z:+selfMesh.position.z.toFixed(2),
+        ry:+selfMesh.rotation.y.toFixed(3),
+        coins:player.coins||0,
+        job:player.job||'',
+        ts:Date.now()
       });
     }
 
-    function makeRemoteLabel(name){
-      const el=document.createElement('div');
-      el.className='nametag';el.textContent=name;
-      document.getElementById('hud').appendChild(el);
-      return{el};
-    }
+    // ── Update remote player nametags each frame ─────────────
+    const _origLoop=window.requestAnimationFrame;
+    setInterval(()=>{
+      Object.values(fbPlayers).forEach(fp=>{
+        if(!fp.mesh||!fp.nameEl)return;
+        const pos=fp.mesh.position.clone();pos.y+=2.8;
+        const proj=pos.project(camera);
+        if(proj.z>=1){fp.nameEl.style.display='none';return;}
+        const sx=(proj.x*.5+.5)*innerWidth;
+        const sy=(-.5*proj.y+.5)*innerHeight;
+        const dist=camera.position.distanceTo(fp.mesh.position);
+        if(dist<80){
+          fp.nameEl.style.display='block';
+          fp.nameEl.style.left=sx+'px';
+          fp.nameEl.style.top=sy+'px';
+        } else {
+          fp.nameEl.style.display='none';
+        }
+      });
+    },50);
 
-    // Hook into existing chat send (look for chat-send button)
+    // ── Hook into chat send button ───────────────────────────
     setTimeout(()=>{
       const chatSend=document.getElementById('chat-send');
       const chatInput=document.getElementById('chat-msg');
@@ -4700,13 +5260,31 @@ window.addEventListener('resize',()=>{
         chatSend.addEventListener('click',()=>{
           const t=chatInput.value.trim();
           if(t&&window._fbSendChat){window._fbSendChat(t);chatInput.value='';}
-        });
+        },true);
       }
     },3000);
 
-  }).catch(e=>console.warn('[TerraWorld] Firebase SDK load failed:',e));
+  }).catch(e=>console.warn('[B5VILLE] Firebase SDK failed:',e));
 })();
+
+// ── Patch buildOn to broadcast builds to Firebase ────────────
+const _origBuildOn=buildOn;
+window._buildOnPatched=false;
+setTimeout(()=>{
+  if(window._fbPushBuild&&!window._buildOnPatched){
+    window._buildOnPatched=true;
+    // Wrap the existing buildOn with Firebase sync
+    const origRef=buildOn;
+    window.buildOn=function(plot,type,ownerOverride){
+      const result=origRef(plot,type,ownerOverride);
+      if(!ownerOverride&&window._fbPushBuild) window._fbPushBuild(plot,type);
+      return result;
+    };
+  }
+},4000);
 // ══════════════════════════════════════════════════════════════
+
+
 </script>
 </body>
 </html>
