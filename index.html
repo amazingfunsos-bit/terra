@@ -298,6 +298,8 @@ canvas#world{display:block;position:fixed;inset:0;}
 }
 #quiz-resume-btn:hover{background:rgba(201,168,76,.13);}
 #quiz-coins-bonus{color:var(--gold);font-family:'Cinzel',serif;font-size:16px;margin-bottom:8px;}
+#story-screen{display:none;}
+#story-text{transition:opacity .8s;}
 </style>
 </head>
 <body>
@@ -307,21 +309,31 @@ canvas#world{display:block;position:fixed;inset:0;}
 <div id="weather-lbl">🌧️ RAIN</div>
 <div id="sleep-overlay"><div class="zzz">💤</div><h2>SLEEPING</h2><p id="sleep-msg">Restoring energy...</p></div>
 
+<!-- STORY SCREEN -->
+<div id="story-screen" style="position:fixed;inset:0;z-index:300;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;">
+  <div id="story-text" style="max-width:680px;text-align:center;font-family:'Cinzel',serif;color:#c9a84c;font-size:18px;line-height:2.1;letter-spacing:1px;"></div>
+  <button id="story-skip" style="margin-top:48px;background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Cinzel',serif;font-size:12px;letter-spacing:4px;padding:10px 32px;cursor:pointer;opacity:0;transition:opacity .5s;" onclick="skipStory()">SKIP →</button>
+</div>
+
 <div id="overlay">
-  <div class="logo"><h1>TERRA</h1><p>OPEN WORLD · MULTIPLAYER · v10</p></div>
+  <div class="logo" style="text-align:center;margin-bottom:8px;">
+    <h1 style="font-family:'Cinzel',serif;font-size:72px;color:#c9a84c;letter-spacing:16px;text-shadow:0 0 60px rgba(201,168,76,.5);margin:0;">B5VILLE</h1>
+    <p style="color:#6a6050;font-size:11px;letter-spacing:6px;margin:6px 0 12px;">OPEN WORLD · MULTIPLAYER · BUILD YOUR CITY</p>
+    <p style="color:#554428;font-size:10px;letter-spacing:3px;margin:0 0 30px;font-style:italic;">"From the ashes of destruction — rebuild, survive, thrive."</p>
+  </div>
   <div class="irow">
     <input class="tf" id="pname" type="text" placeholder="Your name..." maxlength="16"/>
-    <button class="gbtn hi" id="btn-new">Play</button>
+    <button class="gbtn hi" id="btn-new">▶ PLAY</button>
   </div>
   <div class="irow">
     <input class="tf" id="room-name-input" type="text" placeholder="Create room name (optional)..." maxlength="12" style="text-transform:uppercase;"/>
-    <button class="gbtn" id="btn-new-room" onclick="(()=>{const n=document.getElementById('pname').value.trim();const r=document.getElementById('room-name-input').value.trim().toUpperCase();if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}startGame(n,r||('ROOM'+(Math.random().toString(36).slice(2,5).toUpperCase())));})()">Create</button>
+    <button class="gbtn" id="btn-new-room" onclick="(()=>{const n=document.getElementById('pname').value.trim();const r=document.getElementById('room-name-input').value.trim().toUpperCase();if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}runStoryThenStart(n,r||('ROOM'+(Math.random().toString(36).slice(2,5).toUpperCase())));})()">🏙️ CREATE</button>
   </div>
   <div class="irow">
-    <input class="tf" id="join-id" type="text" placeholder="Room code to join..." maxlength="20"/>
-    <button class="gbtn" id="btn-join">Join Room</button>
+    <input class="tf" id="join-id" type="text" placeholder="Friend's room code..." maxlength="20"/>
+    <button class="gbtn" id="btn-join">🔗 JOIN</button>
   </div>
-  <div class="hint" id="s-hint">Progress auto-saved · Share your Room Code to play together online!</div>
+  <div class="hint" id="s-hint">Progress auto-saved · Share your Room Code to play with friends!</div>
 </div>
 
 <div id="hud">
@@ -536,7 +548,7 @@ canvas#world{display:block;position:fixed;inset:0;}
 
   <div id="bank-modal" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:320px;background:var(--panel);border:1px solid var(--border-hi);display:none;pointer-events:all;z-index:40;">
     <div class="sh" style="display:flex;justify-content:space-between;align-items:center;">
-      <h4>🏦 TERRA BANK</h4>
+      <h4>🏦 B5VILLE BANK</h4>
       <button onclick="closeBankModal()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:0 6px;">×</button>
     </div>
     <div style="padding:14px;">
@@ -4379,7 +4391,7 @@ function saveGame(){
       buildings:placedBuildings.map(b=>({cx:b.cx,cz:b.cz,type:b.type,owner:b.owner,hasBed:b.hasBed,furniture:b.furnitureMeshes.length,extraFloors:b.extraFloors||0})),
       cars:carObjects.map(c=>({tier:Object.keys(CAR_DEFS).find(k=>CAR_DEFS[k]===c.def)||'sedan',x:c.mesh.position.x,z:c.mesh.position.z,fuel:c.fuel})),
     };
-    localStorage.setItem('terra_v11_save',JSON.stringify(data));
+    localStorage.setItem('b5ville_save',JSON.stringify(data));
     const ind=document.getElementById('save-ind');
     ind.classList.add('show');setTimeout(()=>ind.classList.remove('show'),1500);
   }catch(e){}
@@ -4388,7 +4400,7 @@ function saveGame(){
 function loadGame(){
   try{
     // Try v11 save first, fall back to v6
-    const raw=localStorage.getItem('terra_v11_save')||localStorage.getItem('terra_v6_save');
+    const raw=localStorage.getItem('b5ville_save')||localStorage.getItem('b5ville_save_v6');
     if(!raw)return false;
     const d=JSON.parse(raw);
     player.coins=d.coins||5000;player.job=d.job||null;
@@ -4469,13 +4481,13 @@ function initNetwork(joinCode){
     // Try PeerJS for real internet multiplayer
     if(typeof Peer==='undefined'){throw new Error('PeerJS not loaded');}
     myRoomCode=joinCode||genRoomCode();
-    const peerId='terra-v8-'+myRoomCode+'-'+player.id;
+    const peerId='b5ville-'+myRoomCode+'-'+player.id;
     myPeer=new Peer(peerId,{debug:0});
     myPeer.on('open',id=>{
       document.getElementById('room-code-lbl').textContent='['+myRoomCode+']';
       if(joinCode){
         // Try to connect to all known room peers (host uses same room code)
-        const hostId='terra-v8-'+joinCode+'-host';
+        const hostId='b5ville-'+joinCode+'-host';
         tryConnectPeer(hostId);
         sysMsg('🌐 Joining room: '+joinCode+' — connecting...');
       } else {
@@ -4555,7 +4567,7 @@ function cleanPeers(){
 // Fallback: same-device BroadcastChannel
 function initLocalNetwork(){
   try{
-    window._localBC=new BroadcastChannel('terra_v8_local');
+    window._localBC=new BroadcastChannel('b5ville_local');
     window._localBC.onmessage=e=>handlePeer(e.data);
     myRoomCode=myRoomCode||'LOCAL';
     document.getElementById('room-code-lbl').textContent='[LOCAL]';
@@ -5043,20 +5055,8 @@ function startGame(name,joinCode){
   requestLock();
 }
 
-document.getElementById('btn-new').onclick=()=>{
-  const n=document.getElementById('pname').value.trim();
-  if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}
-  const customRoom=document.getElementById('room-name-input')?document.getElementById('room-name-input').value.trim().toUpperCase():'';
-  startGame(n,customRoom||null);
-};
-document.getElementById('pname').addEventListener('keydown',e=>{if(e.code==='Enter')document.getElementById('btn-new').click();});
-document.getElementById('btn-join').onclick=()=>{
-  const n=document.getElementById('pname').value.trim();
-  if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}
-  const code=document.getElementById('join-id').value.trim().toUpperCase();
-  if(!code){document.getElementById('s-hint').textContent='Enter a room code to join!';return;}
-  startGame(n,code);
-};
+// btn-new and btn-join are now handled by the extended systems block below
+// (runStoryThenStart → story intro → startGame)
 window.addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);
 });
@@ -5283,8 +5283,835 @@ setTimeout(()=>{
   }
 },4000);
 // ══════════════════════════════════════════════════════════════
+// ██████╗ ███████╗██╗   ██╗██╗██╗     ██╗     ███████╗
+// ██╔══██╗╚════██║██║   ██║██║██║     ██║     ██╔════╝
+// ██████╔╝    ██╔╝██║   ██║██║██║     ██║     █████╗
+// ██╔══██╗   ██╔╝ ╚██╗ ██╔╝██║██║     ██║     ██╔══╝
+// ██████╔╝   ██║   ╚████╔╝ ██║███████╗███████╗███████╗
+//  — B5VILLE EXTENDED SYSTEMS —
+// ══════════════════════════════════════════════════════════════
 
+// ── SOUND EFFECTS ─────────────────────────────────────────────
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let _ac=null;
+function getAC(){if(!_ac)_ac=new AudioCtx();return _ac;}
 
-</script>
-</body>
-</html>
+function playTone(freq,dur=0.12,type='sine',vol=0.18){
+  try{
+    const ac=getAC();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);
+    o.type=type;o.frequency.setValueAtTime(freq,ac.currentTime);
+    g.gain.setValueAtTime(vol,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur);
+    o.start();o.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+function sfxCoin(){playTone(880,0.08,'triangle',0.14);setTimeout(()=>playTone(1100,0.1,'triangle',0.12),80);}
+function sfxBuild(){playTone(220,0.15,'sawtooth',0.1);setTimeout(()=>playTone(330,0.1,'sawtooth',0.08),100);}
+function sfxFootstep(){if(Math.random()<0.3)playTone(80+Math.random()*40,0.04,'sine',0.04);}
+function sfxDoor(){playTone(440,0.06,'square',0.08);setTimeout(()=>playTone(330,0.08,'square',0.06),60);}
+function sfxCar(){playTone(120,0.08,'sawtooth',0.12);}
+function sfxNotif(){playTone(660,0.07,'triangle',0.1);setTimeout(()=>playTone(880,0.09,'triangle',0.1),90);}
+function sfxClick(){playTone(500,0.04,'sine',0.08);}
+function sfxBaby(){playTone(600,0.2,'sine',0.15);setTimeout(()=>playTone(700,0.15,'sine',0.12),200);}
+function sfxIceCream(){
+  [523,659,784,659,523].forEach((f,i)=>setTimeout(()=>playTone(f,0.12,'triangle',0.1),i*130));
+}
+function sfxPolice(){
+  let on=true;
+  const iv=setInterval(()=>{playTone(on?880:660,0.25,'sawtooth',0.15);on=!on;},300);
+  setTimeout(()=>clearInterval(iv),2400);
+}
+function sfxCrash(){
+  playTone(100,0.4,'sawtooth',0.3);
+  setTimeout(()=>playTone(80,0.3,'sawtooth',0.2),100);
+}
+
+// Hook coin earn to sfx
+const _origEarnCoins=earnCoins;
+window.earnCoins=function(amt,src){sfxCoin();return _origEarnCoins(amt,src);};
+// Hook showNotif to sfx
+const _origShowNotif=showNotif;
+window.showNotif=function(msg){sfxNotif();return _origShowNotif(msg);};
+// Hook entering car to sfx
+const _origEnterNearbyCar=enterNearbyCar;
+window.enterNearbyCar=function(){const r=_origEnterNearbyCar();if(r)sfxDoor();return r;};
+// Hook build to sfx
+const _origBuildOnSfx=buildOn;
+
+// ── STORY INTRO ───────────────────────────────────────────────
+const STORY_LINES=[
+  "In the beginning, there was a world called B5 Ville...",
+  "A thriving city, full of life, music, laughter and hope.",
+  "Then one dark day — a monster rose from the deep.",
+  "It tore through every building. Every road. Every home.",
+  "The monster raged for three days and three nights...",
+  "Then it collapsed. Defeated by its own fury. Gone forever.",
+  "Silence fell over the ruins.",
+  "And in that silence...",
+  "You opened your eyes.",
+  "You are the last one alive.",
+  "The city is in ruins. The people are gone.",
+  "But the land is still here. And so are you.",
+  "You are 16 years old. A teenager with nothing but hope.",
+  "It's time to rebuild B5 Ville.",
+  "Save the city. Build a life. Start a family.",
+  "The world is yours to shape.",
+  "— B5 VILLE —"
+];
+
+let _storyPending=null;
+function runStoryThenStart(name,room){
+  _storyPending={name,room};
+  document.getElementById('overlay').style.display='none';
+  const ss=document.getElementById('story-screen');
+  ss.style.display='flex';
+  let i=0;
+  const el=document.getElementById('story-text');
+  const skipBtn=document.getElementById('story-skip');
+  setTimeout(()=>{skipBtn.style.opacity='1';},1500);
+  function showLine(){
+    if(i>=STORY_LINES.length){endStory();return;}
+    el.style.opacity=0;
+    el.style.transition='opacity 0.8s';
+    setTimeout(()=>{
+      el.textContent=STORY_LINES[i];
+      el.style.opacity=1;
+      playTone(220+i*18,0.4,'sine',0.06);
+      i++;
+      setTimeout(showLine, i===STORY_LINES.length?2200:2600);
+    },600);
+  }
+  showLine();
+}
+function endStory(){
+  const ss=document.getElementById('story-screen');
+  ss.style.transition='opacity 1.2s';ss.style.opacity='0';
+  setTimeout(()=>{ss.style.display='none';},1200);
+  if(_storyPending) startGame(_storyPending.name,_storyPending.room);
+}
+function skipStory(){endStory();}
+
+// Hook Play button to story
+document.getElementById('btn-new').onclick=()=>{
+  const n=document.getElementById('pname').value.trim();
+  if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}
+  runStoryThenStart(n,null);
+};
+document.getElementById('pname').addEventListener('keydown',e=>{if(e.code==='Enter')document.getElementById('btn-new').click();});
+document.getElementById('btn-join').onclick=()=>{
+  const n=document.getElementById('pname').value.trim();
+  if(!n){document.getElementById('s-hint').textContent='Enter your name first!';return;}
+  const code=document.getElementById('join-id').value.trim().toUpperCase();
+  if(!code){document.getElementById('s-hint').textContent='Enter room code!';return;}
+  startGame(n,code);
+};
+
+// ── LIFE STAGE SYSTEM ─────────────────────────────────────────
+// Every 10 in-game days = 1 year. Player starts at age 16 (teen).
+// Ages: 16=teen, 18=young adult (can marry), 25=adult, 60=elder
+const LIFE={
+  age:16,
+  stage:'teen',   // teen | young_adult | adult | elder
+  married:false,
+  spouseName:null,
+  spouseId:null,
+  children:[],    // [{name, age, gender}]
+  pregnancyTimer:null,   // null | {hoursLeft, dueHours}
+  pregnancyActive:false,
+  collegeAttended:false,
+  collegeProgress:0,     // 0-100
+  inCollege:false,
+  collegeBuilt:false,
+};
+
+// Called every in-game day tick (from updateSky when day changes)
+function onNewDay(){
+  // 10 days = 1 year
+  if(dayCount%10===0){
+    LIFE.age++;
+    if(LIFE.age===18){LIFE.stage='young_adult';sysMsg('🎓 You are now 18 — a young adult! You can now go to college and get married.');}
+    if(LIFE.age===25){LIFE.stage='adult';sysMsg('👔 You are 25 — a full adult. The city depends on you!');}
+    if(LIFE.age===60){LIFE.stage='elder';sysMsg('👴 You have reached 60 years. A legend of B5 Ville!');}
+    sysMsg(`🎂 Happy Birthday! You are now ${LIFE.age} years old.`);
+    playTone(660,0.3,'triangle',0.2);
+    // Age children
+    LIFE.children.forEach(c=>{
+      c.age++;
+      if(c.age===16) sysMsg(`👦 Your child ${c.name} is now a teenager!`);
+      if(c.age===18) sysMsg(`🎓 Your child ${c.name} is now an adult!`);
+    });
+  }
+  // Update displayed age in HUD
+  document.getElementById('jl-disp').textContent=`Age ${LIFE.age} · ${LIFE.stage.replace('_',' ')} · Lv.${player.level||1}`;
+}
+
+// ── COLLEGE SYSTEM ────────────────────────────────────────────
+function enterCollege(plot){
+  if(LIFE.age<18){showNotif('You must be 18+ to attend college!');return;}
+  if(LIFE.collegeAttended){showNotif('You already completed college!');return;}
+  LIFE.inCollege=true;
+  sysMsg('🎓 Welcome to B5 College! Answer questions to earn your degree. Press Q for quiz.');
+  showNotif('📚 College: Complete 20 quiz questions to graduate!');
+}
+
+function checkCollegeGrad(){
+  if(!LIFE.inCollege)return;
+  LIFE.collegeProgress=(player.totalQuizCorrect||0);
+  if(LIFE.collegeProgress>=20&&!LIFE.collegeAttended){
+    LIFE.collegeAttended=true;LIFE.inCollege=false;
+    sysMsg('🎓 CONGRATULATIONS! You graduated from B5 College! All job salaries +30%!');
+    Object.values(JOBS_DEF).forEach(j=>j.pay=Math.round(j.pay*1.3));
+    playTone(880,0.5,'triangle',0.25);
+    setTimeout(()=>playTone(1100,0.4,'triangle',0.2),500);
+  }
+}
+
+// ── MARRIAGE SYSTEM ──────────────────────────────────────────
+function proposeMarriage(npc){
+  if(LIFE.age<18){showNotif('You must be 18+ to get married!');return;}
+  if(LIFE.married){showNotif('You are already married!');return;}
+  if(!LIFE.collegeAttended){showNotif('Complete college first!');return;}
+  const ring=500;
+  if(player.coins<ring){showNotif(`Need ${ring} ₿5 for a ring!`);return;}
+  const accept=Math.random()>0.3;
+  if(accept){
+    player.coins-=ring;updateWallet();
+    LIFE.married=true;
+    LIFE.spouseName=npc.name||'Alex';
+    LIFE.spouseId=npc.id||Date.now();
+    sysMsg(`💍 ${LIFE.spouseName} said YES! You are now married! 🎉`);
+    playTone(880,0.6,'triangle',0.2);
+    sfxNotif();
+    showNotif(`💒 Married to ${LIFE.spouseName}!`);
+  } else {
+    sysMsg(`💔 ${npc.name||'They'} said no... Try again another day.`);
+    showNotif('💔 Rejected! Maybe try again later...');
+  }
+}
+
+// ── PREGNANCY & BABY SYSTEM ──────────────────────────────────
+// Pregnancy lasts 3–7 real-time hours (random)
+function tryForBaby(){
+  if(!LIFE.married){showNotif('Get married first!');return;}
+  if(LIFE.pregnancyActive){showNotif('Already expecting a baby!');return;}
+  if(LIFE.age<18){showNotif('You must be an adult!');return;}
+  LIFE.pregnancyActive=true;
+  // Random 3-7 real hours in ms
+  const hours=3+Math.random()*4;
+  const ms=hours*60*60*1000;
+  LIFE.pregnancyTimer={startTime:Date.now(),dueTime:Date.now()+ms,hours:hours.toFixed(1)};
+  sysMsg(`🤰 ${LIFE.spouseName} is pregnant! Baby due in ~${hours.toFixed(1)} real hours. Bring her to the hospital when it's time!`);
+  showNotif('🤰 Baby incoming! Head to the hospital!');
+  sfxBaby();
+  // Save pregnancy timer
+  saveGame();
+}
+
+function checkPregnancy(){
+  if(!LIFE.pregnancyActive||!LIFE.pregnancyTimer)return;
+  const now=Date.now();
+  const pct=Math.min(1,(now-LIFE.pregnancyTimer.startTime)/(LIFE.pregnancyTimer.dueTime-LIFE.pregnancyTimer.startTime));
+  // Remind player to go to hospital at 80%
+  if(pct>=0.8&&!LIFE.pregnancyTimer._warned){
+    LIFE.pregnancyTimer._warned=true;
+    sysMsg('🚑 Baby almost here! Bring your spouse to the HOSPITAL NOW!');
+    sfxNotif();
+  }
+  // Baby born at hospital when time is up
+  if(now>=LIFE.pregnancyTimer.dueTime&&LIFE.pregnancyTimer._atHospital){
+    deliverBaby();
+  }
+}
+
+function arriveAtHospitalWithSpouse(){
+  if(LIFE.pregnancyActive&&LIFE.pregnancyTimer){
+    LIFE.pregnancyTimer._atHospital=true;
+    sysMsg('🏥 Your spouse is in the delivery room...');
+  }
+}
+
+function deliverBaby(){
+  LIFE.pregnancyActive=false;LIFE.pregnancyTimer=null;
+  const gender=Math.random()<0.5?'boy':'girl';
+  const boyNames=['Liam','Noah','Elijah','Oliver','James','Mateo','Lucas','Ethan'];
+  const girlNames=['Olivia','Emma','Ava','Sophia','Isabella','Mia','Luna','Camila'];
+  const names=gender==='boy'?boyNames:girlNames;
+  const name=names[Math.floor(Math.random()*names.length)];
+  const baby={name,age:0,gender};
+  LIFE.children.push(baby);
+  sysMsg(`👶 YOUR BABY IS HERE! It's a ${gender}! Name: ${name} 🎉`);
+  sfxBaby();
+  playTone(880,0.8,'triangle',0.25);
+  showNotif(`👶 Welcome ${name} to the world!`);
+  saveGame();
+}
+
+// ── COUNTRIES / PLANES ───────────────────────────────────────
+const COUNTRIES=[
+  {id:'b5city',     name:'🏙️ B5 City',          unlockCost:0,     desc:'Your home city — where it all began.'},
+  {id:'b5ville',    name:'🏡 B5 Ville',          unlockCost:500,   desc:'Suburban paradise next to the city.'},
+  {id:'sos_city',   name:'🆘 SOS City',          unlockCost:1200,  desc:'A city in need of rescue!'},
+  {id:'morocenglind',name:'🕌 Morocenglind',     unlockCost:2000,  desc:'Ancient meets modern in this exotic land.'},
+  {id:'peramexico',  name:'🌮 Peramexico',        unlockCost:3000,  desc:'Vibrant culture, spice and desert sun.'},
+  {id:'panemamexico',name:'🎭 Panemamexico',      unlockCost:4500,  desc:'Lush jungles and ancient temples.'},
+  {id:'brunswickaustin',name:'🎸 Brunswick Austin',unlockCost:6000,desc:'Country music, BBQ and wide open roads.'},
+  {id:'guatemalacollege',name:'📚 Guatemalacollege',unlockCost:8000,desc:'A college town built in the mountains.'},
+  {id:'braziljamaica',name:'🌴 Brazil Jamaica',   unlockCost:10000, desc:'Beaches, reggae and tropical bliss.'},
+  {id:'bangorkansas', name:'🌽 Bangor Kansas',    unlockCost:12000, desc:'Endless plains and open skies.'},
+];
+let currentCountry='b5city';
+const unlockedCountries=new Set(['b5city']);
+
+// Planes — only NPC/computer-flown, player rides as passenger
+const planeRoutes=[]; // {mesh, from, to, t, speed}
+
+function buildPlane(fromCountry,toCountry){
+  const g=new THREE.Group();
+  const bodyM=new THREE.MeshLambertMaterial({color:0xffffff});
+  const wingM=new THREE.MeshLambertMaterial({color:0xdddddd});
+  const accentM=new THREE.MeshLambertMaterial({color:0x1144aa});
+  // Fuselage
+  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(.8,1,18,10),bodyM);
+  fuse.rotation.z=Math.PI/2;g.add(fuse);
+  // Wings
+  const wing=new THREE.Mesh(new THREE.BoxGeometry(22,0.4,5),wingM);wing.position.set(0,0,0);g.add(wing);
+  // Tail fin
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.4,4,4),wingM);tail.position.set(-8,2,0);g.add(tail);
+  const tailWing=new THREE.Mesh(new THREE.BoxGeometry(8,0.3,2.5),wingM);tailWing.position.set(-7,0,0);g.add(tailWing);
+  // Engines
+  [-1,1].forEach(s=>{
+    const eng=new THREE.Mesh(new THREE.CylinderGeometry(.6,.5,3,8),accentM);
+    eng.rotation.z=Math.PI/2;eng.position.set(0,-1,s*6);g.add(eng);
+  });
+  // Nose
+  const nose=new THREE.Mesh(new THREE.ConeGeometry(0.8,3,10),bodyM);
+  nose.rotation.z=-Math.PI/2;nose.position.set(10.5,0,0);g.add(nose);
+  // B5 stripe
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(18,0.5,0.5),accentM);
+  stripe.position.set(0,.85,0);g.add(stripe);
+  // Windows
+  for(let w=0;w<8;w++){
+    const wm=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,0.1),new THREE.MeshLambertMaterial({color:0x88ccee,transparent:true,opacity:.8}));
+    wm.position.set(-5+w*1.4,0.85,0.95);g.add(wm);
+  }
+  g.position.set(0,180,0); // fly high
+  g.scale.set(1.5,1.5,1.5);
+  scene.add(g);
+  planeRoutes.push({mesh:g,t:0,speed:0.0004,from:fromCountry,to:toCountry,_yaw:Math.random()*Math.PI*2});
+  return g;
+}
+
+// Spawn a few decorative planes
+setTimeout(()=>{
+  buildPlane('b5city','b5ville');
+  buildPlane('braziljamaica','bangorkansas');
+  buildPlane('peramexico','morocenglind');
+},3000);
+
+function updatePlanes(dt){
+  planeRoutes.forEach(p=>{
+    p.t+=p.speed;
+    if(p.t>1)p.t=0;
+    // Circle the map at high altitude
+    const r=600+Math.sin(p.t*Math.PI)*200;
+    p.mesh.position.x=Math.sin(p.t*Math.PI*2)*r;
+    p.mesh.position.z=Math.cos(p.t*Math.PI*2)*r;
+    p.mesh.position.y=180+Math.sin(p.t*Math.PI*4)*20;
+    p.mesh.rotation.y=-p.t*Math.PI*2;
+  });
+}
+
+// Country travel panel
+function openCountryPanel(){
+  let html=`<div style="position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;" id="country-panel">
+  <div style="background:#1a1508;border:1px solid #c9a84c;max-width:540px;width:90%;padding:24px;font-family:'Cinzel',serif;max-height:80vh;overflow-y:auto;">
+  <h3 style="color:#c9a84c;letter-spacing:4px;margin:0 0 16px;">✈️ TRAVEL — COUNTRIES</h3>
+  <p style="color:#888;font-size:11px;margin:0 0 18px;">Planes are computer-flown. Buy a ticket to travel as a passenger.</p>`;
+  COUNTRIES.forEach(c=>{
+    const owned=unlockedCountries.has(c.id);
+    const isCurrent=currentCountry===c.id;
+    html+=`<div style="border:1px solid ${owned?'#c9a84c':'#333'};margin:6px 0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="travelTo('${c.id}')">
+      <div>
+        <div style="color:${owned?'#c9a84c':'#888'};font-size:13px;">${c.name}${isCurrent?' ← HERE':''}</div>
+        <div style="color:#666;font-size:10px;margin-top:3px;">${c.desc}</div>
+      </div>
+      <div style="color:${owned?'#4caf50':'#c9a84c'};font-size:11px;white-space:nowrap;margin-left:16px;">
+        ${owned?(isCurrent?'HOME':'TRAVEL FREE'):'✈️ '+c.unlockCost+' ₿5'}
+      </div>
+    </div>`;
+  });
+  html+=`<button onclick="document.getElementById('country-panel').remove()" style="margin-top:16px;background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Cinzel',serif;font-size:11px;letter-spacing:3px;padding:8px 24px;cursor:pointer;width:100%;">CLOSE</button>
+  </div></div>`;
+  const div=document.createElement('div');div.innerHTML=html;document.body.appendChild(div.firstChild);
+}
+
+function travelTo(countryId){
+  const c=COUNTRIES.find(x=>x.id===countryId);
+  if(!c)return;
+  if(countryId===currentCountry){showNotif('Already here!');return;}
+  if(!unlockedCountries.has(countryId)){
+    if(player.coins<c.unlockCost){showNotif(`Need ${c.unlockCost} ₿5 for a ticket to ${c.name}!`);return;}
+    player.coins-=c.unlockCost;updateWallet();
+    unlockedCountries.add(countryId);
+  }
+  // Show travel animation
+  const prev=document.getElementById('country-panel');if(prev)prev.remove();
+  currentCountry=countryId;
+  sysMsg(`✈️ Flying to ${c.name}... fasten your seatbelt!`);
+  // Screen flash
+  const flash=document.createElement('div');
+  flash.style.cssText='position:fixed;inset:0;z-index:300;background:white;opacity:0;transition:opacity .4s;pointer-events:none;';
+  document.body.appendChild(flash);
+  setTimeout(()=>{flash.style.opacity='1';},100);
+  setTimeout(()=>{
+    flash.style.opacity='0';
+    // Teleport player to different region of map
+    const COUNTRY_OFFSETS={b5city:{x:0,z:0},b5ville:{x:1200,z:0},sos_city:{x:2400,z:0},morocenglind:{x:0,z:1200},peramexico:{x:1200,z:1200},panemamexico:{x:2400,z:1200},brunswickaustin:{x:0,z:2400},guatemalacollege:{x:1200,z:2400},braziljamaica:{x:2400,z:2400},bangorkansas:{x:3600,z:0}};
+    const off=COUNTRY_OFFSETS[countryId]||{x:0,z:0};
+    if(selfMesh){selfMesh.position.set(off.x+28,0,off.z+28);camera.position.set(off.x+28,2.2,off.z+28);}
+    sysMsg(`🛬 Welcome to ${c.name}!`);
+    sfxNotif();
+  },800);
+  setTimeout(()=>flash.remove(),1400);
+}
+
+// Add travel button to main menu
+setTimeout(()=>{
+  const mm=document.getElementById('main-menu');
+  if(mm){
+    const travelBtn=document.createElement('div');
+    travelBtn.className='mc';
+    travelBtn.innerHTML='<span>✈️ Travel / Countries</span><span class="arr">◀</span>';
+    travelBtn.onclick=openCountryPanel;
+    mm.insertBefore(travelBtn,mm.lastElementChild);
+  }
+  // Add family/life button
+  const lifeBtn=document.createElement('div');
+  lifeBtn.className='mc';
+  lifeBtn.innerHTML='<span>👨‍👩‍👧 Life & Family</span><span class="arr">◀</span>';
+  lifeBtn.onclick=openLifePanel;
+  document.getElementById('main-menu').insertBefore(lifeBtn,document.getElementById('main-menu').lastElementChild);
+},2000);
+
+// ── LIFE PANEL ────────────────────────────────────────────────
+function openLifePanel(){
+  closeAllMenus();
+  const kids=LIFE.children.map(c=>`<li style="color:#c9a84c;">${c.name} (age ${c.age}, ${c.gender})</li>`).join('')||'<li style="color:#666;">No children yet</li>';
+  const preg=LIFE.pregnancyActive&&LIFE.pregnancyTimer?`<div style="color:#ff88aa;margin:8px 0;">🤰 Expecting! Due in ~${Math.max(0,((LIFE.pregnancyTimer.dueTime-Date.now())/3600000)).toFixed(1)}h</div>`:'';
+  const panel=document.createElement('div');
+  panel.id='life-panel-popup';
+  panel.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:80;background:#1a1508;border:1px solid #c9a84c;max-width:400px;width:90%;padding:24px;font-family:"Cinzel",serif;';
+  panel.innerHTML=`
+    <h3 style="color:#c9a84c;letter-spacing:4px;margin:0 0 16px;">👨‍👩‍👧 LIFE STATUS</h3>
+    <div style="color:#aaa;font-size:12px;line-height:2;">
+      <div>🎂 Age: <span style="color:#c9a84c;">${LIFE.age}</span> &nbsp;|&nbsp; Stage: <span style="color:#c9a84c;">${LIFE.stage.replace('_',' ')}</span></div>
+      <div>💍 Married: <span style="color:#c9a84c;">${LIFE.married?LIFE.spouseName+' ❤️':'Not yet'}</span></div>
+      <div>🎓 College: <span style="color:#c9a84c;">${LIFE.collegeAttended?'Graduated!':LIFE.inCollege?'In Progress ('+LIFE.collegeProgress+'/20)':'Not attended'}</span></div>
+      ${preg}
+      <div style="margin-top:8px;">👶 Children:</div>
+      <ul style="margin:4px 0 12px 16px;">${kids}</ul>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+      ${!LIFE.married&&LIFE.age>=18?`<button onclick="tryProposeToNearbyNPC();document.getElementById('life-panel-popup').remove();" style="background:transparent;border:1px solid #ff88aa;color:#ff88aa;font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px;padding:8px;cursor:pointer;">💍 Propose to Nearby NPC (500 ₿5)</button>`:''}
+      ${LIFE.married&&!LIFE.pregnancyActive?`<button onclick="tryForBaby();document.getElementById('life-panel-popup').remove();" style="background:transparent;border:1px solid #88ff88;color:#88ff88;font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px;padding:8px;cursor:pointer;">👶 Try For a Baby</button>`:''}
+      <button onclick="document.getElementById('life-panel-popup').remove();requestLock();" style="background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Cinzel',serif;font-size:11px;letter-spacing:3px;padding:8px;cursor:pointer;">CLOSE</button>
+    </div>`;
+  document.body.appendChild(panel);
+  releaseLock();
+}
+
+function tryProposeToNearbyNPC(){
+  const nearby=npcs.filter(n=>camera.position.distanceTo(n.mesh.position)<10);
+  if(nearby.length===0){showNotif('No one nearby to propose to! Walk up to an NPC.');return;}
+  proposeMarriage(nearby[0]);
+}
+
+// ── ICE CREAM TRUCK ───────────────────────────────────────────
+let iceCreamTruck=null;
+let iceCreamInterval=null;
+
+function buildIceCreamTruck(){
+  const g=new THREE.Group();
+  const bodyM=new THREE.MeshLambertMaterial({color:0xfff8e7});
+  const accentM=new THREE.MeshLambertMaterial({color:0xff88aa});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(4,2.8,7),bodyM);body.position.y=1.8;g.add(body);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(4.1,.3,7.1),accentM);roof.position.y=3.3;g.add(roof);
+  // Stripes
+  for(let s=0;s<6;s++){
+    const stripe=new THREE.Mesh(new THREE.BoxGeometry(4.05,.3,7.05),s%2===0?accentM:new THREE.MeshLambertMaterial({color:0xaaddff}));
+    stripe.position.y=1.1+s*.35;g.add(stripe);
+  }
+  // Ice cream cone on top
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(.4,.8,8),new THREE.MeshLambertMaterial({color:0xc8956c}));
+  cone.position.set(0,3.7,0);g.add(cone);
+  const scoop=new THREE.Mesh(new THREE.SphereGeometry(.5,10,8),new THREE.MeshLambertMaterial({color:0xffaabb}));
+  scoop.position.set(0,4.3,0);g.add(scoop);
+  // Wheels
+  const tireM=new THREE.MeshLambertMaterial({color:0x222222});
+  [[1.8,.55,2.2],[-1.8,.55,2.2],[1.8,.55,-2.2],[-1.8,.55,-2.2]].forEach(([wx,wy,wz])=>{
+    const t=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.32,14),tireM);
+    t.rotation.z=Math.PI/2;t.position.set(wx,wy,wz);g.add(t);
+  });
+  // Service window
+  const win=new THREE.Mesh(new THREE.BoxGeometry(.08,1,.9),new THREE.MeshLambertMaterial({color:0x88ccee,transparent:true,opacity:.7}));
+  win.position.set(2.05,2.4,0);g.add(win);
+  g.position.set(120,0,30);
+  g.castShadow=true;scene.add(g);
+  return g;
+}
+
+function startIceCreamTruck(){
+  if(iceCreamTruck)return;
+  iceCreamTruck=buildIceCreamTruck();
+  let angle=0;
+  iceCreamInterval=setInterval(()=>{
+    if(!iceCreamTruck)return;
+    angle+=0.003;
+    iceCreamTruck.position.x=Math.sin(angle)*180;
+    iceCreamTruck.position.z=Math.cos(angle)*180;
+    iceCreamTruck.rotation.y=angle+Math.PI/2;
+    // Play music near player
+    const dist=camera.position.distanceTo(iceCreamTruck.position);
+    if(dist<60&&Math.random()<0.003)sfxIceCream();
+  },16);
+  sysMsg('🍦 The Ice Cream Truck is in town! Get close to buy ice cream (press E).');
+}
+setTimeout(startIceCreamTruck,8000);
+
+function buyIceCream(){
+  const cost=8;
+  if(!iceCreamTruck){showNotif('No ice cream truck nearby!');return;}
+  const dist=camera.position.distanceTo(iceCreamTruck.position);
+  if(dist>15){showNotif('Get closer to the ice cream truck!');return;}
+  if(player.coins<cost){showNotif('Not enough coins!');return;}
+  player.coins-=cost;updateWallet();
+  // Add to backpack
+  addToBackpack({id:'ice_cream',name:'🍦 Ice Cream',icon:'🍦',calories:120,perishIn:300});
+  sfxIceCream();
+  showNotif('🍦 Got an ice cream! Check your backpack (B).');
+}
+
+// ── BACKPACK / INVENTORY ──────────────────────────────────────
+const BACKPACK_SIZE=9;
+let backpack=Array(BACKPACK_SIZE).fill(null); // [{id,name,icon,calories,perishIn,timer}]
+let backpackOpen=false;
+
+const FOOD_DEFS={
+  bisley:     {name:'🍞 Bisley',      icon:'🍞', calories:180, perishIn:86400, cost:5},
+  burrito:    {name:'🌯 Burrito',     icon:'🌯', calories:450, perishIn:43200, cost:12},
+  taco:       {name:'🌮 Taco',        icon:'🌮', calories:350, perishIn:43200, cost:10},
+  apple:      {name:'🍎 Apple',       icon:'🍎', calories:80,  perishIn:604800,cost:4},
+  watermelon: {name:'🍉 Watermelon',  icon:'🍉', calories:90,  perishIn:259200,cost:6},
+  ice_cream:  {name:'🍦 Ice Cream',   icon:'🍦', calories:200, perishIn:3600,  cost:8},
+  bread:      {name:'🍞 Bread',       icon:'🍞', calories:200, perishIn:172800,cost:8},
+  potato:     {name:'🥔 Potato',      icon:'🥔', calories:160, perishIn:604800,cost:5},
+  orange:     {name:'🍊 Orange',      icon:'🍊', calories:60,  perishIn:604800,cost:4},
+  wheat:      {name:'🌾 Wheat',       icon:'🌾', calories:0,   perishIn:2592000,cost:3},
+  banana:     {name:'🍌 Banana',      icon:'🍌', calories:90,  perishIn:259200,cost:3},
+  pineapple:  {name:'🍍 Pineapple',   icon:'🍍', calories:80,  perishIn:432000,cost:7},
+};
+
+function addToBackpack(item){
+  const slot=backpack.findIndex(s=>s===null);
+  if(slot===-1){showNotif('🎒 Backpack full! Eat something or put food in the fridge.');return false;}
+  backpack[slot]={...item,timer:item.perishIn||86400,added:Date.now()};
+  renderBackpack();
+  return true;
+}
+
+function renderBackpack(){
+  const bar=document.getElementById('backpack-bar');
+  if(!bar)return;
+  backpack.forEach((item,i)=>{
+    const slot=bar.children[i];
+    if(!slot)return;
+    if(item){
+      slot.textContent=item.icon||'?';
+      slot.title=`${item.name}\n${item.calories?item.calories+' cal':''}`;
+      slot.style.opacity='1';
+      slot.style.background='rgba(201,168,76,.18)';
+    } else {
+      slot.textContent='';slot.title='Empty';
+      slot.style.opacity='.3';
+      slot.style.background='rgba(255,255,255,.04)';
+    }
+  });
+}
+
+function eatFromBackpack(slot){
+  const item=backpack[slot];
+  if(!item){showNotif('Nothing in that slot!');return;}
+  if(item.moldy){showNotif('🤢 That food is MOLDY! Throw it away.');backpack[slot]=null;renderBackpack();return;}
+  needs.hunger=Math.min(100,(needs.hunger||50)+(item.calories||100)/5);
+  sysMsg(`😋 Ate ${item.name}! Energy restored.`);
+  playTone(400,0.1,'sine',0.1);
+  backpack[slot]=null;renderBackpack();updateNeeds();
+}
+
+// Perish food over time
+setInterval(()=>{
+  let changed=false;
+  backpack.forEach((item,i)=>{
+    if(!item)return;
+    item.timer-=60; // 1 minute real time
+    if(item.timer<=0&&!item.moldy){
+      item.moldy=true;item.icon='🤢';
+      sysMsg(`⚠️ Your ${item.name} went MOLDY! Put food in the fridge next time.`);
+      changed=true;
+    }
+  });
+  if(changed)renderBackpack();
+},60000);
+
+function toggleBackpack(){
+  const panel=document.getElementById('backpack-panel');
+  if(!panel)return;
+  backpackOpen=!backpackOpen;
+  panel.style.display=backpackOpen?'flex':'none';
+  if(backpackOpen)releaseLock(); else requestLock();
+}
+
+// Buy food from store/restaurant
+function buyFood(foodId){
+  const fd=FOOD_DEFS[foodId];if(!fd)return;
+  if(player.coins<fd.cost){showNotif(`Need ${fd.cost} ₿5!`);return;}
+  player.coins-=fd.cost;updateWallet();
+  addToBackpack({...fd,id:foodId});
+  showNotif(`${fd.icon} Bought ${fd.name}!`);
+}
+
+// ── BATHROOM NEED ────────────────────────────────────────────
+if(!needs.bathroom) needs.bathroom=100;
+let bathroomUrgency=false;
+
+function useBathroom(plot){
+  if(!plot||(plot.type!=='house_reg'&&plot.type!=='house_exp'&&plot.type!=='hospital')){
+    showNotif('Find a bathroom! (Your home or hospital)');return;
+  }
+  needs.bathroom=100;bathroomUrgency=false;
+  document.getElementById('needs-bathroom')&&(document.getElementById('needs-bathroom').style.color='');
+  sysMsg('🚽 Used the bathroom. Feeling better!');
+  playTone(300,0.15,'sine',0.08);
+  updateNeeds();
+}
+
+// ── PAINTINGS ────────────────────────────────────────────────
+const PAINTING_DEFS=[
+  {id:'city_dawn',  name:'City at Dawn',    cost:80,  color1:0xff8844,color2:0x223388},
+  {id:'forest',     name:'Forest Path',     cost:60,  color1:0x224422,color2:0x88aa44},
+  {id:'ocean',      name:'Ocean Sunset',    cost:90,  color1:0x1155aa,color2:0xff6633},
+  {id:'mountains',  name:'Mountain Range',  cost:70,  color1:0x557799,color2:0xffffff},
+  {id:'abstract',   name:'Abstract Dreams', cost:120, color1:0xaa2288,color2:0x22aacc},
+];
+
+function buildPaintingMesh(def,x,y,z,wallAxis){
+  const g=new THREE.Group();
+  const frameMat=new THREE.MeshLambertMaterial({color:0x8a6020});
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(
+    wallAxis==='z'?2.2:.1, 1.8, wallAxis==='x'?2.2:.1
+  ),frameMat);
+  g.add(frame);
+  // Canvas split into gradient halves
+  const top=new THREE.Mesh(new THREE.BoxGeometry(
+    wallAxis==='z'?2:.06, .88, wallAxis==='x'?2:.06
+  ),new THREE.MeshLambertMaterial({color:def.color1,emissive:def.color1,emissiveIntensity:.12}));
+  top.position.y=.44;g.add(top);
+  const bot=new THREE.Mesh(new THREE.BoxGeometry(
+    wallAxis==='z'?2:.06, .88, wallAxis==='x'?2:.06
+  ),new THREE.MeshLambertMaterial({color:def.color2,emissive:def.color2,emissiveIntensity:.08}));
+  bot.position.y=-.44;g.add(bot);
+  // Small label
+  g.position.set(x,y,z);
+  scene.add(g);
+  return g;
+}
+
+// Buy and place painting (inside house, wall-mounted)
+function buyPainting(defId){
+  const def=PAINTING_DEFS.find(p=>p.id===defId);if(!def)return;
+  if(!insideBuilding||!insideBuilding.def.isHouse){showNotif('Must be inside your house!');return;}
+  if(insideBuilding.owner!==player.name){showNotif('Not your house!');return;}
+  if(player.coins<def.cost){showNotif(`Need ${def.cost} ₿5!`);return;}
+  player.coins-=def.cost;updateWallet();
+  const plot=insideBuilding;
+  // Place on front wall, staggered
+  const n=plot.furnitureMeshes.length;
+  const px=plot.cx+(n%3-1)*3;
+  const py=plot.def.h*.55+.5;
+  const pz=plot.cz-plot.def.d/2+.15;
+  buildPaintingMesh(def,px,py,pz,'z');
+  plot.furnitureMeshes.push({isPainting:true});
+  sysMsg(`🖼️ ${def.name} painting hung on the wall!`);
+  saveGame();
+}
+
+// Add paintings panel to menu
+setTimeout(()=>{
+  const mm=document.getElementById('main-menu');
+  if(mm){
+    const pBtn=document.createElement('div');
+    pBtn.className='mc';
+    pBtn.innerHTML='<span>🖼️ Paintings</span><span class="arr">◀</span>';
+    pBtn.onclick=openPaintingPanel;
+    mm.insertBefore(pBtn,mm.lastElementChild);
+  }
+},2000);
+
+function openPaintingPanel(){
+  closeAllMenus();
+  let html=`<div style="position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;" id="painting-panel">
+  <div style="background:#1a1508;border:1px solid #c9a84c;max-width:440px;width:90%;padding:24px;font-family:'Cinzel',serif;">
+  <h3 style="color:#c9a84c;letter-spacing:4px;margin:0 0 16px;">🖼️ PAINTINGS</h3>`;
+  PAINTING_DEFS.forEach(p=>{
+    html+=`<div style="border:1px solid #333;margin:6px 0;padding:10px;display:flex;justify-content:space-between;cursor:pointer;" onclick="buyPainting('${p.id}');document.getElementById('painting-panel').remove();">
+      <div style="color:#c9a84c;">${p.name}</div>
+      <div style="color:#888;">${p.cost} ₿5</div></div>`;
+  });
+  html+=`<button onclick="document.getElementById('painting-panel').remove();requestLock();" style="margin-top:12px;background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Cinzel',serif;font-size:11px;letter-spacing:3px;padding:8px 20px;cursor:pointer;width:100%;">CLOSE</button>
+  </div></div>`;
+  const d=document.createElement('div');d.innerHTML=html;document.body.appendChild(d.firstChild);
+  releaseLock();
+}
+
+// ── POLICE CHASE SYSTEM ──────────────────────────────────────
+let policeChaseActive=false;
+let policeChaseTimer=0;
+let policeChaseCar=null;
+
+function triggerPoliceChase(){
+  if(policeChaseActive)return;
+  policeChaseActive=true;policeChaseTimer=30;
+  sfxPolice();
+  sysMsg('🚔 POLICE! You were speeding! Pull over — your car will automatically stop!');
+  // Auto-stop car
+  if(drivingCar){
+    drivingCar.vel.set(0,0,0);
+    setTimeout(()=>{
+      if(drivingCar){
+        const fine=150;
+        if(player.coins>=fine){
+          player.coins-=fine;updateWallet();
+          sysMsg(`💸 Speeding fine paid: ${fine} ₿5. Drive safely!`);
+        } else {
+          sysMsg('💸 Not enough coins for fine! Wanted level increased.');
+          addWanted(1,'Unpaid fine');
+        }
+        exitCar();
+        policeChaseActive=false;
+      }
+    },3000);
+  }
+}
+
+// ── HOOK PLANES + LIFE INTO GAME LOOP ────────────────────────
+const _origLoop=loop;
+
+// Patch the game loop to include new systems
+const _patchLoop=setInterval(()=>{
+  if(typeof last!=='undefined'){
+    clearInterval(_patchLoop);
+    const origRAF=requestAnimationFrame;
+    // We use setInterval to inject into existing loop
+    setInterval(()=>{
+      const dt=0.016;
+      updatePlanes(dt);
+      checkPregnancy();
+    },16);
+  }
+},500);
+
+// Also hook into the existing loop by patching updateSky
+const _origUpdateSky=updateSky;
+let _lastDayCount=1;
+window.updateSky=function(dt){
+  _origUpdateSky(dt);
+  if(typeof dayCount!=='undefined'&&dayCount!==_lastDayCount){
+    _lastDayCount=dayCount;
+    onNewDay();
+    checkCollegeGrad();
+  }
+};
+
+// ── KEYBOARD: B=backpack, P=propose, C=countries, T=try for baby ──
+document.addEventListener('keydown',e=>{
+  if(e.code==='KeyB'&&typeof locked!=='undefined'&&locked){toggleBackpack();e.preventDefault();}
+  if(e.code==='KeyP'&&typeof locked!=='undefined'&&locked){openLifePanel();e.preventDefault();}
+  if(e.code==='KeyZ'&&typeof locked!=='undefined'&&locked){openCountryPanel();e.preventDefault();}
+  if(e.code==='KeyJ'&&typeof locked!=='undefined'&&locked){
+    // Buy ice cream if near truck
+    if(iceCreamTruck&&camera.position.distanceTo(iceCreamTruck.position)<15)buyIceCream();
+    e.preventDefault();
+  }
+  if(e.code==='KeyO'&&typeof locked!=='undefined'&&locked){
+    // Use bathroom if inside
+    if(typeof insideBuilding!=='undefined'&&insideBuilding)useBathroom(insideBuilding);
+    e.preventDefault();
+  }
+});
+
+// ── BACKPACK HTML INJECTION ───────────────────────────────────
+(function injectBackpackUI(){
+  // Backpack bar at bottom
+  const bar=document.createElement('div');
+  bar.id='backpack-bar';
+  bar.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:50;pointer-events:all;';
+  for(let i=0;i<BACKPACK_SIZE;i++){
+    const slot=document.createElement('div');
+    slot.style.cssText='width:44px;height:44px;background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.3);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;color:#fff;border-radius:4px;';
+    slot.title='Empty';
+    slot.onclick=(()=>{const idx=i;return()=>eatFromBackpack(idx);})();
+    bar.appendChild(slot);
+  }
+  // Label
+  const label=document.createElement('div');
+  label.style.cssText='position:fixed;bottom:64px;left:50%;transform:translateX(-50%);color:#6a6050;font-family:"Cinzel",serif;font-size:9px;letter-spacing:3px;z-index:50;';
+  label.textContent='🎒 BACKPACK — click to eat · B toggle';
+  document.body.appendChild(bar);
+  document.body.appendChild(label);
+  // Backpack panel (full view)
+  const panel=document.createElement('div');
+  panel.id='backpack-panel';
+  panel.style.cssText='display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:80;background:#1a1508;border:1px solid #c9a84c;padding:16px;font-family:"Cinzel",serif;pointer-events:all;min-width:320px;';
+  panel.innerHTML=`<h4 style="color:#c9a84c;margin:0 0 10px;letter-spacing:4px;">🎒 BACKPACK</h4>
+  <p style="color:#888;font-size:10px;margin:0 0 8px;">Click food slots to eat. Food goes moldy — store in fridge!</p>
+  <button onclick="toggleBackpack()" style="background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Cinzel',serif;font-size:10px;letter-spacing:3px;padding:6px 16px;cursor:pointer;margin-top:8px;width:100%;">CLOSE (B)</button>`;
+  document.body.appendChild(panel);
+  renderBackpack();
+})();
+
+// ── CONTROLS HINT UPDATE ────────────────────────────────────
+setTimeout(()=>{
+  const hint=document.querySelector('.ctrl-hints');
+  if(hint)hint.innerHTML='WASD Move · Shift Sprint · E Interact · B Backpack · N Hire NPC · Z Countries · P Life/Family · O Bathroom · J Ice Cream';
+},2000);
+
+// ── SPEED-CAMERA (police auto-pull-over) ─────────────────────
+// Patch the existing addWanted to also trigger police chase
+const _origAddWanted=addWanted;
+window.addWanted=function(level,reason){
+  _origAddWanted(level,reason);
+  if(level>=1&&reason&&reason.includes('Speed'))triggerPoliceChase();
+};
+
+// ── FLY MODE DISABLE ────────────────────────────────────────
+// Override G key — no flying
+const _existingKD=document.onkeydown;
+// Patch flyMode toggle
+Object.defineProperty(window,'flyMode',{
+  get:()=>false,
+  set:()=>{showNotif('✋ Flying is disabled in B5VILLE!');},
+  configurable:true
+});
+
+// Remove G fly from notif
+setTimeout(()=>{
+  const keyListeners=document.querySelectorAll('[data-keybind="g"]');
+  // Done via existing keydown handler — flyMode setter will block it
+},1000);
+
+console.log('[B5VILLE] Extended systems loaded ✓');
+// ══════════════════════════════════════════════════════════════
+
+</script></body></html>
