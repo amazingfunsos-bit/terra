@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>B5VILLE</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Firebase SDK - compat build (global firebase object) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-database-compat.js"></script>
 <style>
 :root{
   --gold:#c9a84c;--gold-dim:#7a6030;--gold-glow:rgba(201,168,76,.25);
@@ -298,7 +302,7 @@ canvas#world{display:block;position:fixed;inset:0;}
 }
 #quiz-resume-btn:hover{background:rgba(201,168,76,.13);}
 #quiz-coins-bonus{color:var(--gold);font-family:'Cinzel',serif;font-size:16px;margin-bottom:8px;}
-#story-screen{display:none;}
+#story-screen{display:none;flex-direction:column;align-items:center;justify-content:center;}
 #story-text{transition:opacity .8s;}
 </style>
 </head>
@@ -310,7 +314,7 @@ canvas#world{display:block;position:fixed;inset:0;}
 <div id="sleep-overlay"><div class="zzz">💤</div><h2>SLEEPING</h2><p id="sleep-msg">Restoring energy...</p></div>
 
 <!-- STORY SCREEN -->
-<div id="story-screen" style="position:fixed;inset:0;z-index:300;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;">
+<div id="story-screen" style="position:fixed;inset:0;z-index:300;background:#000;flex-direction:column;align-items:center;justify-content:center;padding:40px;">
   <div id="story-text" style="max-width:680px;text-align:center;font-family:'Cinzel',serif;color:#c9a84c;font-size:18px;line-height:2.1;letter-spacing:1px;"></div>
   <button id="story-skip" style="margin-top:48px;background:transparent;border:1px solid #c9a84c;color:#c9a84c;font-family:'Cinzel',serif;font-size:12px;letter-spacing:4px;padding:10px 32px;cursor:pointer;opacity:0;transition:opacity .5s;" onclick="skipStory()">SKIP →</button>
 </div>
@@ -2519,8 +2523,7 @@ function updateEmergencyVehicles(dt){
   crashSites=crashSites.filter(c=>{c.timer-=dt;return c.timer>0;});
 }
 
-// Spawn ambulance when hospital is built
-const _origBuildOn2Ref=buildOn;
+// ── Ambulance spawns when hospital is built (handled in buildOn) ──
 
 // ── NPC AI JOBS & BUYING ──────────────────────────────────────
 const NPC_JOB_DEFS={
@@ -2654,6 +2657,7 @@ function updateHiredNPCs(dt){
     }
   });
 }
+function buildBankInterior(plot){
   const goldM=new THREE.MeshLambertMaterial({color:0xc8a840});
   const darkM=new THREE.MeshLambertMaterial({color:0x554422});
   // Teller windows (3)
@@ -4608,7 +4612,7 @@ let locked=false,flyMode=false,flyVelY=0;
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='KeyT'&&locked){releaseLock();document.getElementById('chat-in').focus();e.preventDefault();}
-  if(e.code==='KeyG'&&locked){flyMode=!flyMode;showNotif(flyMode?'✈ Flying — Q/Space up · C down':'Back on ground');e.preventDefault();}
+  if(e.code==='KeyG'&&locked){showNotif('✋ Flying is disabled in B5VILLE!');e.preventDefault();}
   if(e.code==='KeyF'&&locked){if(ridingBus)exitBus();else exitCar();e.preventDefault();}
   if(e.code==='KeyI'&&locked&&insideBuilding){openFurnPanel();e.preventDefault();}
   if(e.code==='KeyM'){toggleMusic();e.preventDefault();}
@@ -5064,7 +5068,7 @@ window.addEventListener('resize',()=>{
 // ══════════════════════════════════════════════════════════════
 // FIREBASE MULTIPLAYER  —  B5VILLE
 // ══════════════════════════════════════════════════════════════
-(function initFirebase(){
+function initFirebase(){
   const firebaseConfig = {
     apiKey:            "AIzaSyDE-3z4ufv4UdC9hT14S7fKJ1_RKM0pRXE",
     authDomain:        "terra-7d5c4.firebaseapp.com",
@@ -5076,204 +5080,180 @@ window.addEventListener('resize',()=>{
     measurementId:     "G-X6BGR9NT0V"
   };
 
-  const SDK='https://www.gstatic.com/firebasejs/10.12.2/';
-  Promise.all([
-    import(SDK+'firebase-app.js'),
-    import(SDK+'firebase-database.js'),
-    import(SDK+'firebase-auth.js')
-  ]).then(([{initializeApp},{getDatabase,ref,set,get,onValue,onDisconnect,serverTimestamp,remove,push},{getAuth,signInAnonymously}])=>{
+  // Keep retrying until the compat SDK global is available
+  if(typeof firebase==='undefined' || typeof firebase.database==='undefined'){
+    setTimeout(initFirebase, 400);
+    return;
+  }
 
-    const app  = initializeApp(firebaseConfig);
-    const db   = getDatabase(app);
-    const auth = getAuth(app);
+  let app;
+  try{ app=firebase.app(); }
+  catch(e){ app=firebase.initializeApp(firebaseConfig); }
+  const db   = firebase.database(app);
+  const auth = firebase.auth(app);
+  console.log('[B5VILLE] Firebase ready ✓');
 
-    let myUid=null;
-    let currentRoom=null;
-    let presenceRef=null;
-    const fbPlayers={};   // uid → {mesh, nameEl, lastSeen}
-    let lastChatKey='';
-    let buildBroadcastThrottle=0;
+  let myUid=null;
+  let currentRoom=null;
+  let presenceRef=null;
+  const fbPlayers={};
+  let lastChatKey='';
 
-    // ── Sign in ──────────────────────────────────────────────
-    signInAnonymously(auth).then(cred=>{
-      myUid=cred.user.uid;
-      // Wait for game to start (player.name set), then auto-join
-      const waitForGame=setInterval(()=>{
-        if(player&&player.name&&window._b5Room){
-          clearInterval(waitForGame);
-          joinRoom(window._b5Room);
-        }
-      },500);
-    }).catch(e=>console.warn('[B5VILLE] Firebase auth failed:',e));
-
-    // ── Join a room by name ──────────────────────────────────
-    function joinRoom(code){
-      currentRoom=code.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'PUBLIC';
-      presenceRef=ref(db,`b5ville/rooms/${currentRoom}/players/${myUid}`);
-
-      // Auto-remove self on disconnect
-      onDisconnect(presenceRef).remove();
-
-      // Update HUD room label
-      const lbl=document.getElementById('room-code-lbl');
-      if(lbl){lbl.textContent='['+currentRoom+']';lbl.title='Room: '+currentRoom;}
-      document.getElementById('srv-lbl').innerHTML=`B5VILLE <span id="room-code-lbl" style="font-size:9px;color:#7a6030;letter-spacing:2px;margin-left:8px;cursor:pointer;" onclick="copyRoomCode()" title="Click to copy">[${currentRoom}]</span>`;
-      myRoomCode=currentRoom;
-
-      // Broadcast my state every 150ms
-      setInterval(()=>broadcastSelf(),150);
-
-      // ── Listen: players ──────────────────────────────────
-      onValue(ref(db,`b5ville/rooms/${currentRoom}/players`),snap=>{
-        const data=snap.val()||{};
-        const liveUids=new Set(Object.keys(data));
-
-        // Add/update remote players
-        liveUids.forEach(uid=>{
-          if(uid===myUid)return;
-          const pd=data[uid];
-          if(!pd)return;
-          if(!fbPlayers[uid]){
-            const mesh=buildPlayerMesh(pd.shirtColor||0x44aaff);
-            scene.add(mesh);
-            const nameEl=document.createElement('div');
-            nameEl.className='nametag';nameEl.textContent=pd.name||'???';
-            document.getElementById('hud').appendChild(nameEl);
-            fbPlayers[uid]={mesh,nameEl};
-            sysMsg(`🟢 <b>${pd.name||'Player'}</b> joined the room!`);
-          }
-          const fp=fbPlayers[uid];
-          if(pd.x!==undefined) fp.mesh.position.set(pd.x,pd.y,pd.z);
-          if(pd.ry!==undefined) fp.mesh.rotation.y=pd.ry;
-          fp.nameEl.textContent=pd.name||uid.slice(0,6);
-          fp.lastSeen=Date.now();
-        });
-
-        // Remove players who left
-        Object.keys(fbPlayers).forEach(uid=>{
-          if(!liveUids.has(uid)){
-            sysMsg(`🔴 <b>${fbPlayers[uid].nameEl.textContent}</b> left.`);
-            scene.remove(fbPlayers[uid].mesh);
-            fbPlayers[uid].nameEl.remove();
-            delete fbPlayers[uid];
-          }
-        });
-
-        // Update online count
-        const total=liveUids.size;
-        document.getElementById('onl-lbl').textContent=`● ${total} ONLINE`;
-
-        // Sync peers object for leaderboard compatibility
-        Object.keys(fbPlayers).forEach(uid=>{
-          if(data[uid]) peers[uid]={name:data[uid].name,coins:data[uid].coins||0,mesh:fbPlayers[uid].mesh};
-        });
-      });
-
-      // ── Listen: chat ─────────────────────────────────────
-      onValue(ref(db,`b5ville/rooms/${currentRoom}/chat`),snap=>{
-        const msgs=snap.val();if(!msgs)return;
-        const keys=Object.keys(msgs).sort();
-        const latest=keys[keys.length-1];
-        if(latest&&latest!==lastChatKey){
-          lastChatKey=latest;
-          const m=msgs[latest];
-          if(m&&m.uid!==myUid) sysMsg(`💬 <b>${m.name||'?'}</b>: ${m.text}`);
-        }
-      });
-
-      // ── Listen: buildings (sync builds) ──────────────────
-      onValue(ref(db,`b5ville/rooms/${currentRoom}/buildings`),snap=>{
-        const bdata=snap.val();if(!bdata)return;
-        Object.values(bdata).forEach(b=>{
-          // Only rebuild buildings we don't already have locally
-          const exists=placedBuildings.find(pb=>Math.abs(pb.cx-b.cx)<1&&Math.abs(pb.cz-b.cz)<1);
-          if(!exists&&b.type&&b.cx!==undefined){
-            // Find an unoccupied plot near those coords and build
-            const plot=PLOTS.find(p=>Math.abs(p.cx-b.cx)<2&&Math.abs(p.cz-b.cz)<2&&!p.occupied);
-            if(plot) buildOn(plot,b.type,b.owner||'Network');
-          }
-        });
-      });
-
-      // ── Expose send-chat globally ─────────────────────────
-      window._fbSendChat=function(text){
-        if(!currentRoom||!myUid)return;
-        push(ref(db,`b5ville/rooms/${currentRoom}/chat`),{
-          uid:myUid,name:player.name,text,ts:serverTimestamp()
-        });
-      };
-
-      // ── Expose push-build globally ────────────────────────
-      window._fbPushBuild=function(plot,type){
-        if(!currentRoom||!myUid)return;
-        const key=`${Math.round(plot.cx)}_${Math.round(plot.cz)}`;
-        set(ref(db,`b5ville/rooms/${currentRoom}/buildings/${key}`),{
-          cx:plot.cx,cz:plot.cz,type,owner:player.name,ts:serverTimestamp()
-        });
-      };
-
-      sysMsg(`🌐 Room <b style="color:var(--gold)">${currentRoom}</b> joined — share this code with friends!`);
-    }
-
-    // ── Broadcast self position + info ───────────────────────
-    function broadcastSelf(){
-      if(!presenceRef||!myUid||!selfMesh)return;
-      set(presenceRef,{
-        name:player.name,
-        shirtColor:playerShirtColor||0xcc3344,
-        x:+selfMesh.position.x.toFixed(2),
-        y:+selfMesh.position.y.toFixed(2),
-        z:+selfMesh.position.z.toFixed(2),
-        ry:+selfMesh.rotation.y.toFixed(3),
-        coins:player.coins||0,
-        job:player.job||'',
-        ts:Date.now()
-      });
-    }
-
-    // ── Update remote player nametags each frame ─────────────
-    const _origLoop=window.requestAnimationFrame;
-    setInterval(()=>{
-      Object.values(fbPlayers).forEach(fp=>{
-        if(!fp.mesh||!fp.nameEl)return;
-        const pos=fp.mesh.position.clone();pos.y+=2.8;
-        const proj=pos.project(camera);
-        if(proj.z>=1){fp.nameEl.style.display='none';return;}
-        const sx=(proj.x*.5+.5)*innerWidth;
-        const sy=(-.5*proj.y+.5)*innerHeight;
-        const dist=camera.position.distanceTo(fp.mesh.position);
-        if(dist<80){
-          fp.nameEl.style.display='block';
-          fp.nameEl.style.left=sx+'px';
-          fp.nameEl.style.top=sy+'px';
-        } else {
-          fp.nameEl.style.display='none';
-        }
-      });
-    },50);
-
-    // ── Hook into chat send button ───────────────────────────
-    setTimeout(()=>{
-      const chatSend=document.getElementById('chat-send');
-      const chatInput=document.getElementById('chat-msg');
-      if(chatSend&&chatInput){
-        chatSend.addEventListener('click',()=>{
-          const t=chatInput.value.trim();
-          if(t&&window._fbSendChat){window._fbSendChat(t);chatInput.value='';}
-        },true);
+  // ── Sign in ──────────────────────────────────────────────
+  auth.signInAnonymously().then(cred=>{
+    myUid=cred.user.uid;
+    console.log('[B5VILLE] Firebase UID:',myUid);
+    const waitForGame=setInterval(()=>{
+      if(typeof player!=='undefined'&&player&&player.name&&window._b5Room){
+        clearInterval(waitForGame);
+        joinRoom(window._b5Room);
       }
-    },3000);
+    },500);
+  }).catch(e=>console.warn('[B5VILLE] Auth failed:',e));
 
-  }).catch(e=>console.warn('[B5VILLE] Firebase SDK failed:',e));
-})();
+  function joinRoom(code){
+    currentRoom=code.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12)||'PUBLIC';
+    presenceRef=db.ref('b5ville/rooms/'+currentRoom+'/players/'+myUid);
+    presenceRef.onDisconnect().remove();
+    setInterval(()=>broadcastSelf(),150);
+
+    if(typeof myRoomCode!=='undefined') myRoomCode=currentRoom;
+    document.getElementById('srv-lbl').innerHTML=
+      'B5VILLE <span id="room-code-lbl" style="font-size:9px;color:#7a6030;letter-spacing:2px;margin-left:8px;cursor:pointer;" onclick="copyRoomCode()" title="Click to copy">['+currentRoom+']</span>';
+
+    // Players
+    db.ref('b5ville/rooms/'+currentRoom+'/players').on('value',snap=>{
+      const data=snap.val()||{};
+      const liveUids=new Set(Object.keys(data));
+
+      liveUids.forEach(uid=>{
+        if(uid===myUid)return;
+        const pd=data[uid];if(!pd)return;
+        if(!fbPlayers[uid]){
+          const mesh=typeof buildPlayerMesh==='function'?buildPlayerMesh(pd.shirtColor||0x44aaff):null;
+          if(mesh)scene.add(mesh);
+          const nameEl=document.createElement('div');
+          nameEl.className='nametag';nameEl.textContent=pd.name||'???';
+          document.getElementById('hud').appendChild(nameEl);
+          fbPlayers[uid]={mesh,nameEl};
+          sysMsg('🟢 <b>'+(pd.name||'Player')+'</b> joined!');
+        }
+        const fp=fbPlayers[uid];
+        if(fp.mesh&&pd.x!==undefined)fp.mesh.position.set(pd.x,pd.y,pd.z);
+        if(fp.mesh&&pd.ry!==undefined)fp.mesh.rotation.y=pd.ry;
+        fp.nameEl.textContent=pd.name||uid.slice(0,6);
+      });
+
+      Object.keys(fbPlayers).forEach(uid=>{
+        if(!liveUids.has(uid)){
+          sysMsg('🔴 <b>'+fbPlayers[uid].nameEl.textContent+'</b> left.');
+          if(fbPlayers[uid].mesh)scene.remove(fbPlayers[uid].mesh);
+          fbPlayers[uid].nameEl.remove();
+          delete fbPlayers[uid];
+        }
+      });
+
+      const onlEl=document.getElementById('onl-lbl');
+      if(onlEl)onlEl.textContent='● '+liveUids.size+' ONLINE';
+    });
+
+    // Chat
+    db.ref('b5ville/rooms/'+currentRoom+'/chat').on('value',snap=>{
+      const msgs=snap.val();if(!msgs)return;
+      const keys=Object.keys(msgs).sort();
+      const latest=keys[keys.length-1];
+      if(latest&&latest!==lastChatKey){
+        lastChatKey=latest;
+        const msg=msgs[latest];
+        if(msg&&msg.uid!==myUid)sysMsg('💬 <b>'+(msg.name||'?')+'</b>: '+msg.text);
+      }
+    });
+
+    // Buildings sync
+    db.ref('b5ville/rooms/'+currentRoom+'/buildings').on('value',snap=>{
+      const bdata=snap.val();if(!bdata)return;
+      Object.values(bdata).forEach(b=>{
+        if(!b||b.cx===undefined)return;
+        const exists=typeof placedBuildings!=='undefined'&&
+          placedBuildings.find(pb=>Math.abs(pb.cx-b.cx)<1&&Math.abs(pb.cz-b.cz)<1);
+        if(!exists&&b.type){
+          const plot=typeof PLOTS!=='undefined'&&
+            PLOTS.find(p=>Math.abs(p.cx-b.cx)<2&&Math.abs(p.cz-b.cz)<2&&!p.occupied);
+          if(plot)buildOn(plot,b.type,b.owner||'Network');
+        }
+      });
+    });
+
+    // Expose globals
+    window._fbSendChat=function(text){
+      db.ref('b5ville/rooms/'+currentRoom+'/chat').push({
+        uid:myUid,name:player.name,text,
+        ts:firebase.database.ServerValue.TIMESTAMP
+      });
+    };
+    window._fbPushBuild=function(plot,type){
+      const key=Math.round(plot.cx)+'_'+Math.round(plot.cz);
+      db.ref('b5ville/rooms/'+currentRoom+'/buildings/'+key).set({
+        cx:plot.cx,cz:plot.cz,type,owner:player.name,
+        ts:firebase.database.ServerValue.TIMESTAMP
+      });
+    };
+
+    sysMsg('🌐 Room <b style="color:var(--gold)">'+currentRoom+'</b> — share this code!');
+  }
+
+  function broadcastSelf(){
+    if(!presenceRef||!myUid||typeof selfMesh==='undefined'||!selfMesh)return;
+    presenceRef.set({
+      name:player.name,
+      shirtColor:typeof playerShirtColor!=='undefined'?playerShirtColor:0xcc3344,
+      x:+selfMesh.position.x.toFixed(2),
+      y:+selfMesh.position.y.toFixed(2),
+      z:+selfMesh.position.z.toFixed(2),
+      ry:+selfMesh.rotation.y.toFixed(3),
+      coins:player.coins||0,
+      job:player.job||''
+    });
+  }
+
+  // Nametag positions
+  setInterval(()=>{
+    if(typeof camera==='undefined')return;
+    Object.values(fbPlayers).forEach(fp=>{
+      if(!fp.mesh||!fp.nameEl)return;
+      const pos=fp.mesh.position.clone();pos.y+=2.8;
+      const proj=pos.project(camera);
+      if(proj.z>=1){fp.nameEl.style.display='none';return;}
+      const dist=camera.position.distanceTo(fp.mesh.position);
+      if(dist<80){
+        fp.nameEl.style.display='block';
+        fp.nameEl.style.left=((proj.x*.5+.5)*innerWidth)+'px';
+        fp.nameEl.style.top=((-.5*proj.y+.5)*innerHeight)+'px';
+      } else fp.nameEl.style.display='none';
+    });
+  },50);
+
+  // Chat button hook
+  setTimeout(()=>{
+    const btn=document.getElementById('chat-send');
+    const inp=document.getElementById('chat-msg');
+    if(btn&&inp){
+      btn.addEventListener('click',()=>{
+        const t=inp.value.trim();
+        if(t&&window._fbSendChat){window._fbSendChat(t);inp.value='';}
+      },true);
+    }
+  },3000);
+}
+
+// Start Firebase — retries automatically until SDK is ready
+window.addEventListener('load', initFirebase);
 
 // ── Patch buildOn to broadcast builds to Firebase ────────────
-const _origBuildOn=buildOn;
 window._buildOnPatched=false;
 setTimeout(()=>{
   if(window._fbPushBuild&&!window._buildOnPatched){
     window._buildOnPatched=true;
-    // Wrap the existing buildOn with Firebase sync
     const origRef=buildOn;
     window.buildOn=function(plot,type,ownerOverride){
       const result=origRef(plot,type,ownerOverride);
@@ -5328,17 +5308,13 @@ function sfxCrash(){
   setTimeout(()=>playTone(80,0.3,'sawtooth',0.2),100);
 }
 
-// Hook coin earn to sfx
-const _origEarnCoins=earnCoins;
-window.earnCoins=function(amt,src){sfxCoin();return _origEarnCoins(amt,src);};
-// Hook showNotif to sfx
-const _origShowNotif=showNotif;
-window.showNotif=function(msg){sfxNotif();return _origShowNotif(msg);};
-// Hook entering car to sfx
-const _origEnterNearbyCar=enterNearbyCar;
-window.enterNearbyCar=function(){const r=_origEnterNearbyCar();if(r)sfxDoor();return r;};
-// Hook build to sfx
-const _origBuildOnSfx=buildOn;
+// Hook coin earn to sfx — deferred so originals are defined
+setTimeout(()=>{
+  if(typeof earnCoins==='function'){const _o=earnCoins;window.earnCoins=function(a,s){sfxCoin();return _o(a,s);};}
+  if(typeof showNotif==='function'){const _o=showNotif;window.showNotif=function(m){sfxNotif();return _o(m);};}
+  if(typeof enterNearbyCar==='function'){const _o=enterNearbyCar;window.enterNearbyCar=function(){const r=_o();if(r)sfxDoor();return r;};}
+},500);
+// Build sfx hooked via setTimeout below
 
 // ── STORY INTRO ───────────────────────────────────────────────
 const STORY_LINES=[
@@ -6006,33 +5982,22 @@ function triggerPoliceChase(){
 }
 
 // ── HOOK PLANES + LIFE INTO GAME LOOP ────────────────────────
-const _origLoop=loop;
+// Run new systems at 60fps via their own interval (non-blocking)
+setInterval(()=>{
+  const dt=0.016;
+  if(typeof planeRoutes!=='undefined') updatePlanes(dt);
+  checkPregnancy();
+},16);
 
-// Patch the game loop to include new systems
-const _patchLoop=setInterval(()=>{
-  if(typeof last!=='undefined'){
-    clearInterval(_patchLoop);
-    const origRAF=requestAnimationFrame;
-    // We use setInterval to inject into existing loop
-    setInterval(()=>{
-      const dt=0.016;
-      updatePlanes(dt);
-      checkPregnancy();
-    },16);
-  }
-},500);
-
-// Also hook into the existing loop by patching updateSky
-const _origUpdateSky=updateSky;
+// Day change hook — checked via setInterval instead of patching updateSky
 let _lastDayCount=1;
-window.updateSky=function(dt){
-  _origUpdateSky(dt);
+setInterval(()=>{
   if(typeof dayCount!=='undefined'&&dayCount!==_lastDayCount){
     _lastDayCount=dayCount;
     onNewDay();
     checkCollegeGrad();
   }
-};
+},5000);
 
 // ── KEYBOARD: B=backpack, P=propose, C=countries, T=try for baby ──
 document.addEventListener('keydown',e=>{
@@ -6088,28 +6053,18 @@ setTimeout(()=>{
 },2000);
 
 // ── SPEED-CAMERA (police auto-pull-over) ─────────────────────
-// Patch the existing addWanted to also trigger police chase
-const _origAddWanted=addWanted;
-window.addWanted=function(level,reason){
-  _origAddWanted(level,reason);
-  if(level>=1&&reason&&reason.includes('Speed'))triggerPoliceChase();
-};
-
-// ── FLY MODE DISABLE ────────────────────────────────────────
-// Override G key — no flying
-const _existingKD=document.onkeydown;
-// Patch flyMode toggle
-Object.defineProperty(window,'flyMode',{
-  get:()=>false,
-  set:()=>{showNotif('✋ Flying is disabled in B5VILLE!');},
-  configurable:true
-});
-
-// Remove G fly from notif
 setTimeout(()=>{
-  const keyListeners=document.querySelectorAll('[data-keybind="g"]');
-  // Done via existing keydown handler — flyMode setter will block it
+  if(typeof addWanted==='function'){
+    const _origAddWanted=addWanted;
+    window.addWanted=function(level,reason){
+      _origAddWanted(level,reason);
+      if(level>=1&&reason&&reason.toLowerCase().includes('speed'))triggerPoliceChase();
+    };
+  }
 },1000);
+
+// Flying disabled - handled by checking in keydown instead
+// (flyMode let variable cannot be redefined with Object.defineProperty)
 
 console.log('[B5VILLE] Extended systems loaded ✓');
 // ══════════════════════════════════════════════════════════════
